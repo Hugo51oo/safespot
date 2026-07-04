@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2E2017">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SafeSpot">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>SafeSpot</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --espresso:#33231A; --brown:#6B4630; --tan:#C98B4E; --tan-d:#A96F38;
+    --terra:#C0684A; --amber:#E0A458;
+    --cream:#F9EEDD; --paper:#FDF8F0; --txt:#33231A; --muted:#96806B; --line:#EDDCC4;
+    --sos:#C24B32; --sos-d:#9A3A26; --ok:#6D8B5E; --safe:#6B4630; --near:#C98B4E;
+    --grad:linear-gradient(135deg,#C98B4E,#C0684A);
+    --grad-soft:linear-gradient(135deg,#E0A458,#C98B4E);
+    --safeTop:env(safe-area-inset-top,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;height:100dvh;overflow:hidden;background:var(--paper);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt)}
+  button{font-family:inherit}
+  #map{position:absolute;inset:0;z-index:1;background:#e9e4d8}
+  /* Mode trajet : le fond s'estompe pour que l'itinéraire et les repères ressortent sans effort visuel */
+  #map.routing .leaflet-tile-pane{filter:grayscale(.6) brightness(1.12) contrast(.92) saturate(.7);transition:filter .45s ease}
+  #map:not(.routing) .leaflet-tile-pane{transition:filter .45s ease}
+
+  .head{position:absolute;top:0;left:0;right:0;z-index:1000;padding:calc(10px + var(--safeTop)) 14px 8px;
+    background:linear-gradient(160deg,rgba(51,35,26,.96),rgba(107,58,38,.72) 55%,rgba(51,35,26,0));pointer-events:none}
+  .brandrow{display:flex;align-items:center;gap:10px}
+  .badge{width:34px;height:34px;border-radius:50%;background:var(--grad-soft);display:grid;place-items:center;flex:0 0 auto;box-shadow:0 2px 10px rgba(192,104,74,.45)}
+  .badge svg{width:18px;height:18px;fill:#fff}
+  .brand b{font-family:Georgia,serif;color:#fff;font-size:18px;letter-spacing:.5px;display:block;line-height:1}
+  .brand span{color:var(--tan);font-size:10.5px;font-style:italic;font-family:Georgia,serif}
+  .gear{margin-left:auto;pointer-events:auto;width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;cursor:pointer}
+  .gear svg{width:20px;height:20px;fill:#fff}
+  .searchrow{margin-top:9px;pointer-events:auto;display:flex;background:rgba(251,248,242,.85);
+    -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+    border-radius:13px;box-shadow:0 3px 14px rgba(0,0,0,.22);overflow:hidden}
+  .searchrow input{flex:1;border:none;padding:11px 14px;font-size:15px;background:transparent;color:var(--txt)}
+  .searchrow input:focus{outline:none}
+  .searchrow button{border:none;background:transparent;color:var(--brown);padding:0 14px;cursor:pointer}
+  .searchrow button svg{width:18px;height:18px;fill:currentColor}
+  .results{margin-top:6px;pointer-events:auto;background:var(--paper);border-radius:12px;box-shadow:0 3px 12px rgba(0,0,0,.2);overflow:hidden;display:none}
+  .results.on{display:block}
+  .results div{padding:10px 14px;font-size:14px;border-bottom:1px solid var(--line);cursor:pointer;color:var(--txt)}
+  .results div:last-child{border-bottom:none}
+
+  .fabs{position:absolute;right:14px;bottom:calc(44vh + 14px);z-index:1000;display:flex;flex-direction:column;gap:10px;
+    transition:bottom .38s cubic-bezier(.32,.72,.28,1)}
+  .fab{width:50px;height:50px;border-radius:50%;border:none;background:rgba(251,248,242,.78);
+    -webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);
+    color:var(--brown);box-shadow:0 4px 16px rgba(46,32,23,.3);display:grid;place-items:center;cursor:pointer;
+    transition:transform .18s cubic-bezier(.32,.72,.28,1),box-shadow .18s}
+  .fab svg{width:22px;height:22px;fill:currentColor}
+  .fab:active{transform:scale(.9)} .fab.primary{background:var(--grad);color:#fff;box-shadow:0 4px 18px rgba(192,104,74,.45)}
+
+  .sos{position:absolute;left:16px;bottom:calc(44vh + 14px);z-index:1001;width:62px;height:62px;border-radius:50%;
+    border:none;background:var(--sos);color:#fff;font-family:Georgia,serif;font-weight:bold;font-size:17px;letter-spacing:1px;
+    box-shadow:0 4px 18px rgba(178,59,46,.55);cursor:pointer;
+    transition:bottom .38s cubic-bezier(.32,.72,.28,1),transform .18s;animation:sospulse 2.6s infinite}
+  @keyframes sospulse{0%,100%{box-shadow:0 4px 18px rgba(178,59,46,.55)}50%{box-shadow:0 4px 26px rgba(178,59,46,.85)}}
+  .sos:active{transform:scale(.92)}
+
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:1000;background:rgba(251,248,242,.82);
+    -webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);
+    border-radius:22px 22px 0 0;box-shadow:0 -8px 32px rgba(46,32,23,.22);height:44vh;display:flex;flex-direction:column;
+    transition:height .38s cubic-bezier(.32,.72,.28,1)}
+  .sheet.collapsed{height:92px}
+  .grip{padding:10px 0 4px;display:flex;justify-content:center;cursor:pointer}
+  .grip i{width:42px;height:5px;border-radius:3px;background:var(--line)}
+  .sheet-h{padding:0 18px 8px;display:flex;align-items:baseline;justify-content:space-between}
+  .sheet-h h2{margin:0;font-family:Georgia,serif;font-size:18px;color:var(--espresso)}
+  .sheet-h em{font-style:normal;color:var(--muted);font-size:12px}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:0 18px 10px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--brown);padding:6px 12px;border-radius:999px;font-size:13px;cursor:pointer;white-space:nowrap}
+  .chip[aria-pressed="true"]{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(192,104,74,.3)}
+  .bar{display:flex;gap:10px;padding:0 18px 4px}
+  .btn{flex:1;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn svg{width:17px;height:17px;fill:currentColor} .btn:active{transform:scale(.98)}
+  .btn.brown{background:var(--grad);color:#fff;box-shadow:0 3px 12px rgba(192,104,74,.35)}
+  .btn.ghost{background:var(--cream);color:var(--brown)}
+  .btn.green{background:linear-gradient(135deg,#7FA06E,#5F7D51);color:#fff;box-shadow:0 3px 12px rgba(109,139,94,.35)}
+  .btn.sos{background:linear-gradient(135deg,#D9603F,#B2402B);color:#fff}
+  .list{flex:1;overflow-y:auto;padding:2px 12px 16px}
+  .item{display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;cursor:pointer}
+  .item:active{background:var(--cream)}
+  .ic{width:40px;height:40px;border-radius:11px;background:var(--cream);display:grid;place-items:center;flex:0 0 auto}
+  .ic svg{width:20px;height:20px;fill:var(--brown)}
+  .it-main{flex:1;min-width:0} .it-main b{display:block;font-size:15px;color:var(--espresso);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .it-main span{font-size:12.5px;color:var(--muted)}
+  .dist{font-size:13px;font-weight:600;color:var(--tan-d);flex:0 0 auto}
+  .empty{padding:26px 18px;text-align:center;color:var(--muted);font-size:14px}
+
+  .pin{width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 3px 10px rgba(0,0,0,.45),0 0 0 4px rgba(255,255,255,.9);display:grid;place-items:center;border:2.5px solid #fff}
+  .pin svg{width:16px;height:16px;fill:#fff;transform:rotate(45deg)}
+  .me{width:22px;height:22px;border-radius:50%;background:#2f6df0;border:4px solid #fff;box-shadow:0 0 0 7px rgba(47,109,240,.28),0 2px 8px rgba(0,0,0,.35)}
+  .me.pulse{animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 4px rgba(47,109,240,.30)}70%{box-shadow:0 0 0 16px rgba(47,109,240,0)}100%{box-shadow:0 0 0 4px rgba(47,109,240,0)}}
+
+  .modal{position:absolute;inset:0;z-index:2000;background:rgba(46,32,23,.35);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:flex-end}
+  .modal.open{display:flex}
+  .modal.open .card{animation:slideup .42s cubic-bezier(.32,.72,.28,1)}
+  @keyframes slideup{from{transform:translateY(48px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .card{background:rgba(251,248,242,.94);-webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);
+    width:100%;border-radius:22px 22px 0 0;padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto;
+    box-shadow:0 -10px 40px rgba(46,32,23,.3)}
+  .card h3{margin:2px 0 4px;font-family:Georgia,serif;color:var(--espresso);font-size:20px}
+  .card p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
+  label{display:block;font-size:12px;color:var(--brown);font-weight:600;margin:12px 0 5px}
+  input.f,select.f{width:100%;padding:11px;border:1px solid var(--line);border-radius:11px;font-size:15px;background:#fff;color:var(--txt)}
+  .note{background:var(--cream);border-left:4px solid var(--tan);border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--brown);line-height:1.5}
+
+  .toast{position:absolute;left:50%;top:calc(108px + var(--safeTop));transform:translateX(-50%) translateY(-12px);z-index:3000;
+    background:rgba(46,32,23,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    color:#fff;padding:10px 16px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;
+    transition:opacity .3s,transform .3s cubic-bezier(.32,.72,.28,1);max-width:88%;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .hint{position:absolute;left:50%;top:calc(108px + var(--safeTop));transform:translateX(-50%);z-index:1500;background:var(--tan);color:#fff;padding:9px 16px;border-radius:999px;font-size:13.5px;display:none;box-shadow:0 3px 10px rgba(0,0,0,.2)}
+  .hint.on{display:block}
+
+  .trip{position:absolute;left:12px;right:12px;top:calc(10px + var(--safeTop));z-index:1600;background:var(--ok);color:#fff;border-radius:14px;padding:10px 14px;display:none;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .trip.on{display:flex}
+  .trip b{font-size:14px} .trip span{font-size:12px;opacity:.9;display:block}
+  .trip .end{margin-left:auto;background:#fff;color:var(--ok);border:none;border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;flex:0 0 auto}
+
+  .sos-overlay{position:absolute;inset:0;z-index:4000;background:rgba(142,45,35,.96);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff}
+  .sos-overlay.on{display:flex}
+  .sos-overlay h2{font-family:Georgia,serif;font-size:26px;margin:0 0 6px}
+  .sos-overlay .count{font-size:74px;font-weight:bold;font-family:Georgia,serif;line-height:1;margin:14px 0}
+  .sos-overlay p{max-width:320px;font-size:14px;opacity:.92;margin:0 0 22px}
+  .sos-actions{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
+  .sos-actions a,.sos-actions button{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:700;cursor:pointer}
+  .sos-actions .white{background:#fff;color:var(--sos-d)} .sos-actions .dark{background:var(--sos-d);color:#fff}
+  .sos-actions .line{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.6)}
+  .leaflet-control-attribution{font-size:9px}
+  :focus-visible{outline:3px solid var(--tan);outline-offset:2px}
+  .seg{font-family:Georgia,serif;color:var(--espresso);font-size:15px;margin:14px 0 4px}
+  .arow{display:flex;gap:8px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line)}
+  .arow .am{flex:1;min-width:0}
+  .arow .am b{display:block;font-size:14px;color:var(--espresso);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arow .am span{font-size:12px;color:var(--muted)}
+  .mini{border:none;border-radius:9px;padding:8px 10px;font-size:12.5px;font-weight:700;cursor:pointer;flex:0 0 auto}
+  .mini.ok{background:var(--ok);color:#fff} .mini.no{background:var(--sos);color:#fff}
+  .alist{max-height:34vh;overflow-y:auto}
+  .statpill{background:var(--cream);border-radius:12px;padding:8px 12px;min-width:84px;text-align:center}
+  .statpill b{display:block;font-family:Georgia,serif;font-size:20px;color:#6B3A26}
+  .statpill span{font-size:10.5px;color:var(--muted)}
+  .chatlog{flex:1;min-height:32vh;max-height:44vh;overflow-y:auto;padding:6px 2px;display:flex;flex-direction:column;gap:8px}
+  .msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap}
+  .msg.user{align-self:flex-end;background:var(--grad);color:#fff;border-bottom-right-radius:4px}
+  .msg.bot{align-self:flex-start;background:var(--cream);color:var(--txt);border-bottom-left-radius:4px}
+  .msg.bot.think{color:var(--muted);font-style:italic}
+  .chatrow{display:flex;gap:8px;padding-top:10px}
+  .chatrow input{flex:1;padding:11px;border:1px solid var(--line);border-radius:11px;font-size:15px;background:#fff;color:var(--txt)}
+  .chatrow button{border:none;border-radius:11px;background:var(--brown);color:#fff;padding:0 16px;font-weight:700;cursor:pointer}
+  .qacts{display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}
+  .qa{border:1px solid var(--line);background:#fff;color:var(--brown);padding:7px 12px;border-radius:999px;font-size:12.5px;cursor:pointer}
+  .qa:active{background:var(--cream)}
+
+  /* Onboarding */
+  .onb{position:absolute;inset:0;z-index:5000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 26px;text-align:center;color:#fff;
+    background:radial-gradient(120% 90% at 50% -10%,#8A4E33 0%,#5C3624 42%,#33231A 100%)}
+  .onb.on{display:flex}
+  .onb .obadge{width:76px;height:76px;border-radius:50%;background:var(--grad-soft);display:grid;place-items:center;box-shadow:0 8px 30px rgba(224,164,88,.4);margin-bottom:18px}
+  .onb .obadge svg{width:38px;height:38px;fill:#fff}
+  .onb h1{font-family:Georgia,serif;font-size:34px;letter-spacing:1px;margin:0}
+  .onb .tag{font-family:Georgia,serif;font-style:italic;color:var(--tan);font-size:15px;margin:6px 0 26px}
+  .onb .feat{display:flex;align-items:center;gap:12px;width:100%;max-width:330px;text-align:left;margin-bottom:14px}
+  .onb .feat .fi{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.1);display:grid;place-items:center;flex:0 0 auto}
+  .onb .feat .fi svg{width:20px;height:20px;fill:var(--tan)}
+  .onb .feat b{display:block;font-size:14.5px} .onb .feat span{font-size:12.5px;color:#D8C7B2;line-height:1.35;display:block}
+  .onb .go{margin-top:22px;width:100%;max-width:330px;border:none;border-radius:14px;background:var(--grad-soft);color:#fff;font-weight:700;font-size:16px;padding:15px;cursor:pointer;box-shadow:0 6px 20px rgba(224,164,88,.45)}
+  .onb .legal{margin-top:14px;font-size:11.5px;color:#D8B896;max-width:330px;line-height:1.4}
+
+  /* Popups Leaflet à la marque */
+  .leaflet-popup-content-wrapper{background:var(--paper);color:var(--txt);border-radius:14px;box-shadow:0 6px 20px rgba(46,32,23,.25)}
+  .leaflet-popup-content{margin:12px 14px;font-family:inherit;font-size:13.5px;line-height:1.4}
+  .leaflet-popup-tip{background:var(--paper)}
+  .pop-t{font-family:Georgia,serif;font-weight:bold;color:var(--espresso);font-size:15px;display:block;margin-bottom:2px}
+  .pop-m{color:var(--muted);font-size:12.5px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* Mouvements additionnels — discrets, au service de la lisibilité */
+  .item{animation:itemIn .38s cubic-bezier(.22,.85,.32,1) both}
+  .item:active{transform:scale(.98)}
+  @keyframes itemIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .item:nth-child(1){animation-delay:.02s}.item:nth-child(2){animation-delay:.05s}.item:nth-child(3){animation-delay:.08s}
+  .item:nth-child(4){animation-delay:.11s}.item:nth-child(5){animation-delay:.14s}.item:nth-child(6){animation-delay:.17s}
+  .item:nth-child(7){animation-delay:.20s}.item:nth-child(8){animation-delay:.23s}
+
+  .onb .obadge{animation:badgeBreathe 3.6s ease-in-out infinite}
+  @keyframes badgeBreathe{0%,100%{transform:scale(1);box-shadow:0 8px 30px rgba(224,164,88,.4)}50%{transform:scale(1.045);box-shadow:0 10px 38px rgba(224,164,88,.58)}}
+  .onb .feat{animation:featIn .5s cubic-bezier(.22,.85,.32,1) both}
+  .onb h1,.onb .tag{animation:featIn .5s cubic-bezier(.22,.85,.32,1) both}
+  @keyframes featIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+  #cloudStat{transition:color .4s ease}
+  #cloudStat.pulseonce{animation:cloudPop .5s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes cloudPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+  .btn,.chip,.fab,.qa,.mini{transition:transform .16s cubic-bezier(.34,1.4,.64,1),box-shadow .16s,background .2s}
+  .btn:active,.chip:active,.qa:active,.mini:active{transform:scale(.95)}
+
+  .leaflet-marker-icon .pin{animation:pinDrop .42s cubic-bezier(.22,.9,.32,1.3) both}
+  @keyframes pinDrop{from{opacity:0;transform:translateY(-14px) rotate(-45deg) scale(.6)}to{opacity:1;transform:translateY(0) rotate(-45deg) scale(1)}}
+
+  .toast{transition:opacity .32s cubic-bezier(.22,.85,.32,1),transform .32s cubic-bezier(.22,.85,.32,1)}
+
+  .spin{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="head">
+    <div class="brandrow">
+      <div class="badge"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z"/></svg></div>
+      <div class="brand"><b>SAFESPOT</b><span id="tagline1">La sécurité, à portée de main.</span></div>
+      <span id="cloudStat" title="Mode local" style="margin-left:auto;font-size:11px;color:#C9B89E;display:flex;align-items:center;gap:5px;pointer-events:none">&#9679;<span id="cloudTxt" style="font-style:italic;font-family:Georgia,serif">local</span></span>
+      <button class="gear" id="btnSettings" aria-label="Réglages" style="margin-left:10px"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 000-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 00-1.7-1l-.3-2.5H10l-.3 2.5a7.4 7.4 0 00-1.7 1l-2.4-1-2 3.4L5.6 11a7.5 7.5 0 000 2l-2 1.6 2 3.4 2.4-1c.5.4 1.1.7 1.7 1l.3 2.5h4l.3-2.5c.6-.3 1.2-.6 1.7-1l2.4 1 2-3.4-2-1.6zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/></svg></button>
+    </div>
+    <div class="searchrow">
+      <input id="search" placeholder="Rechercher une adresse, un lieu…" data-i18n-ph="search_ph" autocomplete="off">
+      <button id="btnSearch" aria-label="Rechercher"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 10-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg></button>
+    </div>
+    <div class="results" id="results"></div>
+  </div>
+
+  <div class="trip" id="trip">
+    <div><b id="tripTitle" data-i18n="trip_title">Trajet en cours</b><span id="tripInfo" data-i18n="trip_info">Suivi de position actif</span></div>
+    <button class="end" id="tripEnd" data-i18n="trip_end">Je suis arrivée</button>
+  </div>
+
+  <div class="hint" id="addHint" data-i18n="add_hint">Touchez la carte pour placer le point sûr</div>
+
+  <button class="sos" id="btnSos" aria-label="Alerte SOS">SOS</button>
+
+  <div class="fabs" id="fabs">
+    <button class="fab" id="btnAssist" aria-label="Assistante SafeSpot" data-noi18n><svg viewBox="0 0 24 24"><path d="M12 3C7 3 3 6.6 3 11c0 2.2 1 4.2 2.7 5.6L5 21l4.2-2c.9.2 1.8.4 2.8.4 5 0 9-3.6 9-8S17 3 12 3zm-4 9a1.3 1.3 0 110-2.6A1.3 1.3 0 018 12zm4 0a1.3 1.3 0 110-2.6A1.3 1.3 0 0112 12zm4 0a1.3 1.3 0 110-2.6A1.3 1.3 0 0116 12z"/></svg></button>
+    <button class="fab" id="btnLocate" aria-label="Me localiser"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 3h-2.06A7 7 0 0013 5.06V3h-2v2.06A7 7 0 005.06 11H3v2h2.06A7 7 0 0011 18.94V21h2v-2.06A7 7 0 0018.94 13H21v-2z"/></svg></button>
+    <button class="fab primary" id="btnNear" aria-label="Itinéraire vers le point sûr le plus proche"><svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4zM13 14v-2.5h-2V14H9v-3.5a1 1 0 011-1h3V7l3 3.5L13 14z"/></svg></button>
+  </div>
+
+  <section class="sheet" id="sheet" aria-label="Points sûrs">
+    <div class="grip" id="grip" role="button" tabindex="0" aria-label="Replier ou déplier"><i></i></div>
+    <div class="sheet-h"><h2 data-i18n="safe_points">Points sûrs</h2><em id="count">—</em></div>
+    <div class="chips" id="chips"></div>
+    <div class="bar">
+      <button class="btn brown" id="btnAdd"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg><span data-i18n="add">Ajouter</span></button>
+      <button class="btn green" id="btnTrip"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg><span data-i18n="back_home">Rentrer</span></button>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <!-- Détail point sûr -->
+  <div class="modal" id="detail">
+    <div class="card">
+      <h3 id="dName">—</h3>
+      <p id="dMeta">—</p>
+      <div class="bar" style="padding:4px 0 0">
+        <button class="btn brown" id="dRoute"><svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4z"/></svg><span data-i18n="detail_route">Itinéraire à pied</span></button>
+      </div>
+      <div class="bar" style="padding:8px 0 0">
+        <button class="btn ghost" id="dReport" data-i18n="detail_report">Signaler (fermé / inexact)</button>
+        <button class="btn ghost" id="dClose" data-i18n="close">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ajout -->
+  <div class="modal" id="modal">
+    <div class="card">
+      <h3 data-i18n="add_title">Proposer un point sûr</h3>
+      <p data-i18n="add_sub">Un lieu où l'on peut entrer et demander de l'aide. Votre proposition sera vérifiée avant d'apparaître pour les autres.</p>
+      <label for="pName" data-i18n="f_name">Nom du lieu</label>
+      <input class="f" id="pName" placeholder="Ex. Pharmacie de la Gare" data-i18n-ph="f_name_ph" maxlength="60">
+      <label for="pType" data-i18n="f_type">Type</label>
+      <select class="f" id="pType"><option>Commerce refuge</option><option>Pharmacie</option><option>Lieu public</option><option>Gare / transport</option><option>Campus</option><option>Autre</option></select>
+      <div class="bar" style="padding:16px 0 0"><button class="btn ghost" id="cancelAdd" data-i18n="cancel">Annuler</button><button class="btn brown" id="saveAdd" data-i18n="save_here">Enregistrer ici</button></div>
+    </div>
+  </div>
+
+  <!-- Réglages / contacts -->
+  <div class="modal" id="settings">
+    <div class="card">
+      <h3 data-i18n="settings">Réglages</h3>
+      <p data-i18n="settings_sub">Vos contacts de confiance sont prévenus quand vous lancez une alerte ou un trajet. Tout reste sur cet appareil.</p>
+      <label for="c1n" data-i18n="c1n">Contact de confiance 1 — nom</label>
+      <input class="f" id="c1n" placeholder="Ex. Maman" data-i18n-ph="c1n_ph" maxlength="40">
+      <label for="c1p" data-i18n="phone">Téléphone</label>
+      <input class="f" id="c1p" type="tel" placeholder="06 12 34 56 78" maxlength="20">
+      <label for="c2n" data-i18n="c2n">Contact 2 — nom (facultatif)</label>
+      <input class="f" id="c2n" placeholder="Ex. Léa" maxlength="40">
+      <label for="c2p" data-i18n="phone">Téléphone</label>
+      <input class="f" id="c2p" type="tel" placeholder="06 …" maxlength="20">
+      <div class="bar" style="padding:14px 0 14px"><button class="btn ghost" id="closeSettings" data-i18n="close">Fermer</button><button class="btn brown" id="saveSettings" data-i18n="save">Enregistrer</button></div>
+      <div class="note" id="legalNote">Prototype.</div>
+      <div class="bar" style="padding:14px 0 0"><button class="btn ghost" id="openAdmin" style="flex:1" data-i18n="admin_btn">Mode admin (modération)</button></div>
+      <label data-i18n="language" style="margin-top:14px">Langue</label>
+      <select class="f" id="langSel"><option value="fr">Français</option><option value="en">English</option></select>
+      <div class="bar" style="padding:10px 0 0"><button class="btn ghost" id="openAbout" style="flex:1" data-i18n="about_btn">À propos de SafeSpot</button></div>
+    </div>
+  </div>
+
+  <!-- SOS -->
+  <div class="sos-overlay" id="sosOverlay">
+    <h2 id="sosTitle">Alerte SOS</h2>
+    <div class="count" id="sosCount">5</div>
+    <p id="sosWait">…</p>
+    <div class="sos-actions" id="sosActions" style="display:none"></div>
+    <div class="sos-actions"><button class="line" id="sosCancel">Annuler</button></div>
+  </div>
+
+  <!-- Admin / modération -->
+  <div class="modal" id="admin">
+    <div class="card">
+      <h3 data-i18n="admin_title">Mode admin</h3>
+      <div id="adminLogin">
+        <p data-i18n="admin_login_sub">Connexion réservée à la modération.</p>
+        <label for="aEmail" data-i18n="admin_email">E-mail admin</label>
+        <input class="f" id="aEmail" type="email" autocomplete="username">
+        <label for="aPass" data-i18n="admin_pass">Mot de passe</label>
+        <input class="f" id="aPass" type="password" autocomplete="current-password">
+        <div class="bar" style="padding:14px 0 0"><button class="btn ghost" id="adminCloseL" data-i18n="close">Fermer</button><button class="btn brown" id="adminDoLogin" data-i18n="admin_login">Se connecter</button></div>
+      </div>
+      <div id="adminPanel" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <p style="margin:0" data-i18n="admin_mod">Modération en direct.</p>
+          <button class="mini no" id="adminLogout" data-i18n="admin_logout">Déconnexion</button>
+        </div>
+        <div class="seg" data-i18n="admin_tovalidate">À valider</div>
+        <div class="alist" id="adminPending"></div>
+        <div class="seg" data-i18n="admin_reports">Signalements récents</div>
+        <div class="alist" id="adminReports"></div>
+        <div class="seg" data-i18n="admin_stats">Statistiques d'usage (anonymes)</div>
+        <div id="adminStats" style="display:flex;gap:8px;flex-wrap:wrap;padding:2px 0 6px"></div>
+        <div class="bar" style="padding:14px 0 0"><button class="btn ghost" id="adminCloseP" style="flex:1" data-i18n="close">Fermer</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assistante -->
+  <div class="modal" id="assist">
+    <div class="card">
+      <h3 id="assistTitle">Assistante SafeSpot</h3>
+      <p id="assistSub"></p>
+      <div class="chatlog" id="chatlog"></div>
+      <div class="chatrow">
+        <input id="chatIn" placeholder="Posez votre question…" data-i18n-ph="chat_ph" maxlength="500" autocomplete="off">
+        <button id="chatSend" aria-label="Envoyer">➤</button>
+      </div>
+      <div class="qacts">
+        <button class="qa" data-act="near" data-i18n="qa_near">📍 Point sûr le plus proche</button>
+        <button class="qa" data-act="trip" data-i18n="qa_trip">🟢 Je rentre seule</button>
+        <button class="qa" data-act="sos" data-i18n="qa_sos">🔴 Configurer le SOS</button>
+      </div>
+      <div class="bar" style="padding:10px 0 0"><button class="btn ghost" id="assistClose" style="flex:1" data-i18n="close">Fermer</button></div>
+    </div>
+  </div>
+
+  <!-- Onboarding (premier lancement) -->
+  <div class="onb" id="onb">
+    <div class="obadge"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z"/></svg></div>
+    <h1>SAFESPOT</h1>
+    <div class="tag" id="tagline2">La sécurité, à portée de main.</div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg></div><div><b id="onbF1t">Points sûrs vérifiés</b><span id="onbF1d">…</span></div></div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4z"/></svg></div><div><b id="onbF2t">Itinéraire immédiat</b><span id="onbF2d">…</span></div></div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24"><path d="M12 22a10 10 0 110-20 10 10 0 010 20zm-1-6h2v2h-2v-2zm0-10h2v8h-2V6z"/></svg></div><div><b id="onbF3t">SOS et contacts de confiance</b><span id="onbF3d">…</span></div></div>
+    <button class="go" id="onbGo" data-i18n="onb_go">Commencer</button>
+    <div class="legal" id="onbLegal">…</div>
+  </div>
+
+  <!-- À propos -->
+  <div class="modal" id="about">
+    <div class="card">
+      <div style="text-align:center;padding:6px 0 2px">
+        <div style="width:58px;height:58px;border-radius:50%;background:var(--tan);display:inline-grid;place-items:center;box-shadow:0 3px 12px rgba(46,32,23,.25)"><svg viewBox="0 0 24 24" style="width:28px;height:28px;fill:#fff"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3z"/></svg></div>
+        <h3 style="margin:10px 0 0">SafeSpot</h3>
+        <p id="aboutTagline" style="margin:2px 0 12px;font-family:Georgia,serif;font-style:italic;color:var(--tan)">…</p>
+      </div>
+      <p id="aboutDesc">…</p>
+      <p id="aboutOrg">…</p>
+      <div class="note" id="aboutImportant" style="margin-top:4px">…</div>
+      <p id="aboutPrivacy" style="margin-top:12px;font-size:12px;color:var(--muted)">…</p>
+      <div class="bar" style="padding:12px 0 0"><button class="btn brown" id="aboutClose" style="flex:1" data-i18n="close">Fermer</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     CONFIGURATION CLOUD (Supabase) — voir le guide d'installation
+     1) Cree un projet gratuit sur supabase.com
+     2) Project Settings > API : copie l'URL et la cle "anon public"
+     3) Colle-les entre les guillemets ci-dessous
+     Laisse vide pour rester en mode local (demo).
+  ============================================================ */
+  var SUPABASE_URL="";
+  var SUPABASE_ANON_KEY="";
+  /* Assistante IA (Claude) — URL de votre relais serveur (Edge Function).
+     Laisse vide pour le mode démo (réponses intégrées, sans IA). 
+     NE JAMAIS mettre une clé API Anthropic directement ici. */
+  var ASSIST_ENDPOINT="";
+
+  /* ============================================================
+     CONFIGURATION RÉGIONALE — tout ce qui dépend du pays / de la
+     ville vit ici. Pour adapter SafeSpot à une autre ville ou un
+     autre pays plus tard, on ne modifie QUE ce bloc.
+  ============================================================ */
+  var REGION={
+    country:"FR",
+    countryName:"France",
+    cityName:"Reims",
+    center:[49.2545,4.0312],      // centre de la carte au démarrage
+    zoom:14,
+    emergency:"112",              // numéro d'urgence européen (fonctionne dans toute l'UE)
+    police:"17",                  // à adapter hors France (ex. 999 UK, 911 US/CA)
+    womenHelpline:"3919",         // écoute violences femmes — à adapter/retirer si non disponible localement
+    womenHelplineLabel:"Violences faites aux femmes",
+    searchCountryCode:"fr",       // filtre Nominatim (recherche d'adresse)
+    locale:"fr-FR"
+  };
+  function tel(n){return "tel:"+String(n).replace(/\s/g,"");}
+
+  // --- Stockage local (protégé : marche aussi sans localStorage) ---
+  var mem={};
+  function lget(k){if(!mem)mem={};try{var v=localStorage.getItem(k);return v===null?(k in mem?mem[k]:null):v;}catch(e){return k in mem?mem[k]:null;}}
+  function lset(k,v){if(!mem)mem={};mem[k]=v;try{localStorage.setItem(k,v);}catch(e){}}
+  function jget(k,d){var v=lget(k);if(!v)return d;try{return JSON.parse(v);}catch(e){return d;}}
+  function jset(k,o){lset(k,JSON.stringify(o));}
+  function emergencyLine(){return LANG==="en"?(REGION.police+" (police) or "+REGION.emergency+" (emergency)"):(REGION.police+" (police) ou le "+REGION.emergency+" (urgences)");}
+
+  /* ============================================================
+     INTERNATIONALISATION (i18n)
+     Tout le texte affiché vit ici. Pour ajouter une langue, copiez
+     le bloc "en" et traduisez les valeurs. Les {x} sont remplacés
+     à l'exécution (numéros d'urgence, ville…).
+  ============================================================ */
+  var I18N={
+    fr:{
+      _label:"Français",
+      tagline:"La sécurité, à portée de main.",
+      search_ph:"Rechercher une adresse, un lieu…",
+      trip_title:"Trajet en cours", trip_info:"Suivi de position actif", trip_end:"Je suis arrivée",
+      add_hint:"Touchez la carte pour placer le point sûr",
+      safe_points:"Points sûrs", add:"Ajouter", back_home:"Rentrer",
+      near_aria:"Itinéraire vers le point sûr le plus proche", locate_aria:"Me localiser", assist_aria:"Assistante SafeSpot",
+      detail_route:"Itinéraire à pied", detail_report:"Signaler (fermé / inexact)", close:"Fermer",
+      add_title:"Proposer un point sûr", add_sub:"Un lieu où l'on peut entrer et demander de l'aide. Votre proposition sera vérifiée avant d'apparaître pour les autres.",
+      f_name:"Nom du lieu", f_name_ph:"Ex. Pharmacie de la Gare", f_type:"Type", cancel:"Annuler", save_here:"Enregistrer ici",
+      settings:"Réglages", settings_sub:"Vos contacts de confiance sont prévenus quand vous lancez une alerte ou un trajet. Tout reste sur cet appareil.",
+      c1n:"Contact de confiance 1 — nom", c1n_ph:"Ex. Maman", phone:"Téléphone", c2n:"Contact 2 — nom (facultatif)", c2n_ph:"Ex. Léa",
+      save:"Enregistrer", admin_btn:"Mode admin (modération)", about_btn:"À propos de SafeSpot", language:"Langue",
+      legal_note:"SafeSpot ne remplace pas les secours. En cas de danger immédiat, appelez le {police} (police) ou le {emergency} (urgences).",
+      assist_title:"Assistante SafeSpot", assist_sub:"Conseils de sécurité et aide sur l'app. En danger immédiat : {police} ou {emergency}.",
+      chat_ph:"Posez votre question…", qa_near:"📍 Point sûr le plus proche", qa_trip:"🟢 Je rentre seule", qa_sos:"🔴 Configurer le SOS",
+      about_desc:"SafeSpot aide à repérer des points sûrs vérifiés — des lieux où entrer et demander de l'aide — et propose un itinéraire à pied, une alerte SOS et un suivi de trajet à partager avec un proche.",
+      about_org:"Projet étudiant porté à l'Université de Reims Champagne-Ardenne (URCA). Les points sûrs sont proposés par la communauté puis contrôlés avant publication. Cartographie © OpenStreetMap ; itinéraires OSRM ; données hébergées sur Supabase.",
+      about_important:"Important. SafeSpot est un prototype et ne remplace pas les secours. En danger immédiat : {police} (police) ou {emergency} (urgences). {helplineLabel} : {helpline} (écoute, gratuit).",
+      about_privacy:"Vos contacts de confiance et vos réglages restent stockés sur votre appareil. Votre position n'est utilisée que pour les fonctions que vous déclenchez et n'est jamais conservée.",
+      onb_f1_t:"Points sûrs vérifiés", onb_f1_d:"Des lieux où entrer et demander de l'aide, contrôlés un par un.",
+      onb_f2_t:"Itinéraire immédiat", onb_f2_d:"Le point sûr le plus proche, avec le trajet à pied en un geste.",
+      onb_f3_t:"SOS et contacts de confiance", onb_f3_d:"Une alerte prête en 5 secondes vers vos proches ou le {emergency}.",
+      onb_go:"Commencer", onb_legal:"SafeSpot ne remplace pas les secours. En danger immédiat, appelez le {police} (police) ou le {emergency}.",
+      sos_title:"Alerte SOS", sos_wait:"Préparation de votre position et du message d'alerte. Touchez « Annuler » si tout va bien.",
+      sos_sms:"Envoyer un SMS à {name}", sos_call:"Appeler {name}", sos_add_contact:"Ajouter un contact de confiance",
+      sos_call_emergency:"Appeler le {emergency} (urgences)", sos_share:"Partager ma position",
+      admin_title:"Mode admin", admin_login_sub:"Connexion réservée à la modération.", admin_email:"E-mail admin", admin_pass:"Mot de passe",
+      admin_login:"Se connecter", admin_mod:"Modération en direct.", admin_logout:"Déconnexion",
+      admin_tovalidate:"À valider", admin_reports:"Signalements récents", admin_stats:"Statistiques d'usage (anonymes)",
+      admin_publish:"Publier", admin_delete:"Supprimer", admin_remove:"Retirer", admin_export:"Exporter le bilan (CSV)",
+      about_ready:"Prêt pour une démonstration",
+      t_help:"Aide immédiate", msg_hello:"Bonjour ! Je suis l'assistante SafeSpot. Je peux vous guider vers un point sûr, configurer le SOS, ou répondre à vos questions de sécurité.",
+      msg_demo_suffix:" (Mode démo — réponses intégrées.)",
+      toast_located_off:"Localisation refusée. Activez-la dans le navigateur.",
+      toast_map_off:"Carte indisponible (connexion faible). La liste et le SOS restent utilisables.",
+      toast_added_local:"Point sûr ajouté (local).", toast_proposed:"Merci ! Proposition envoyée — visible après vérification.",
+      toast_reported:"Merci, signalement transmis.", toast_name_needed:"Donnez un nom au lieu.",
+      count_sorted:" · triés par distance", count_ref:" référencés"
+    },
+    en:{
+      _label:"English",
+      tagline:"Safety, within reach.",
+      search_ph:"Search an address or place…",
+      trip_title:"Trip in progress", trip_info:"Live location tracking on", trip_end:"I've arrived",
+      add_hint:"Tap the map to place the safe spot",
+      safe_points:"Safe spots", add:"Add", back_home:"Walk home",
+      near_aria:"Route to the nearest safe spot", locate_aria:"Locate me", assist_aria:"SafeSpot assistant",
+      detail_route:"Walking route", detail_report:"Report (closed / inaccurate)", close:"Close",
+      add_title:"Suggest a safe spot", add_sub:"A place where you can step in and ask for help. Your suggestion will be reviewed before appearing to others.",
+      f_name:"Place name", f_name_ph:"e.g. Station Pharmacy", f_type:"Type", cancel:"Cancel", save_here:"Save here",
+      settings:"Settings", settings_sub:"Your trusted contacts are alerted when you start an alert or a trip. Everything stays on this device.",
+      c1n:"Trusted contact 1 — name", c1n_ph:"e.g. Mum", phone:"Phone", c2n:"Contact 2 — name (optional)", c2n_ph:"e.g. Lea",
+      save:"Save", admin_btn:"Admin mode (moderation)", about_btn:"About SafeSpot", language:"Language",
+      legal_note:"SafeSpot is not a substitute for emergency services. In immediate danger, call {police} (police) or {emergency} (emergency).",
+      assist_title:"SafeSpot assistant", assist_sub:"Safety tips and help with the app. In immediate danger: {police} or {emergency}.",
+      chat_ph:"Ask your question…", qa_near:"📍 Nearest safe spot", qa_trip:"🟢 Walking home alone", qa_sos:"🔴 Set up SOS",
+      about_desc:"SafeSpot helps you find verified safe spots — places where you can step in and ask for help — and offers a walking route, an SOS alert and live trip sharing with someone you trust.",
+      about_org:"Student project run at the University of Reims Champagne-Ardenne (URCA). Safe spots are community-suggested then reviewed before publication. Mapping © OpenStreetMap; routing by OSRM; data hosted on Supabase.",
+      about_important:"Important. SafeSpot is a prototype and does not replace emergency services. In immediate danger: {police} (police) or {emergency} (emergency). {helplineLabel}: {helpline} (free helpline).",
+      about_privacy:"Your trusted contacts and settings stay stored on your device. Your location is only used for the features you trigger and is never stored.",
+      onb_f1_t:"Verified safe spots", onb_f1_d:"Places where you can step in and ask for help, checked one by one.",
+      onb_f2_t:"Instant routing", onb_f2_d:"The nearest safe spot, with the walking route in one tap.",
+      onb_f3_t:"SOS and trusted contacts", onb_f3_d:"An alert ready in 5 seconds to your contacts or {emergency}.",
+      onb_go:"Get started", onb_legal:"SafeSpot is not a substitute for emergency services. In immediate danger, call {police} (police) or {emergency}.",
+      sos_title:"SOS alert", sos_wait:"Preparing your location and the alert message. Tap “Cancel” if all is well.",
+      sos_sms:"Text {name}", sos_call:"Call {name}", sos_add_contact:"Add a trusted contact",
+      sos_call_emergency:"Call {emergency} (emergency)", sos_share:"Share my location",
+      admin_title:"Admin mode", admin_login_sub:"Sign-in reserved for moderation.", admin_email:"Admin e-mail", admin_pass:"Password",
+      admin_login:"Sign in", admin_mod:"Live moderation.", admin_logout:"Sign out",
+      admin_tovalidate:"To review", admin_reports:"Recent reports", admin_stats:"Usage statistics (anonymous)",
+      admin_publish:"Publish", admin_delete:"Delete", admin_remove:"Remove", admin_export:"Export report (CSV)",
+      about_ready:"Ready for a demo",
+      t_help:"Immediate help", msg_hello:"Hi! I'm the SafeSpot assistant. I can guide you to a safe spot, set up SOS, or answer your safety questions.",
+      msg_demo_suffix:" (Demo mode — built-in answers.)",
+      toast_located_off:"Location denied. Enable it in your browser.",
+      toast_map_off:"Map unavailable (weak connection). The list and SOS still work.",
+      toast_added_local:"Safe spot added (local).", toast_proposed:"Thank you! Suggestion sent — visible after review.",
+      toast_reported:"Thanks, your report was sent.", toast_name_needed:"Please give the place a name.",
+      count_sorted:" · sorted by distance", count_ref:" listed"
+    }
+  };
+  var LANG=lget("safespot_lang")||(navigator.language&&navigator.language.indexOf("en")===0?"en":"fr");
+  if(!I18N[LANG])LANG="fr";
+  function t(key,vars){
+    var s=(I18N[LANG]&&I18N[LANG][key])||(I18N.fr[key])||key;
+    s=s.replace(/\{police\}/g,REGION.police).replace(/\{emergency\}/g,REGION.emergency)
+       .replace(/\{helpline\}/g,REGION.womenHelpline).replace(/\{helplineLabel\}/g,REGION.womenHelplineLabel)
+       .replace(/\{city\}/g,REGION.cityName);
+    if(vars){for(var k in vars){s=s.replace(new RegExp("\\{"+k+"\\}","g"),vars[k]);}}
+    return s;
+  }
+  var sb=(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase)?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+
+  var REIMS=REGION.center; // conservé pour compatibilité du code existant
+
+  /* Résilience : si Leaflet n'a pas pu charger (réseau faible, CDN indisponible),
+     on installe un substitut inerte pour que le reste de l'app (liste, SOS,
+     contacts, assistante) continue de fonctionner sans carte. */
+  var MAP_OK=(typeof window.L!=="undefined");
+  if(!MAP_OK){
+    var noop=function(){return shim;};
+    var shim={setView:noop,on:noop,addTo:noop,invalidateSize:noop,removeLayer:noop,
+      fitBounds:noop,panTo:noop,bindPopup:noop,openPopup:noop,setLatLng:noop,
+      setContent:noop,openOn:noop,pad:noop,addLayer:noop,remove:noop};
+    window.L={map:noop,tileLayer:noop,marker:noop,divIcon:noop,polyline:noop,
+      popup:noop,latLngBounds:noop,control:{zoom:noop}};
+  }
+  var TYPES=["Tous","Commerce refuge","Pharmacie","Lieu public","Gare / transport","Campus","Autre"];
+  var ICONS={
+    "Commerce refuge":'<path d="M4 4h16l-1 5H5L4 4zm1 7h14v9H5v-9zm5 2v5h4v-5h-4z"/>',
+    "Pharmacie":'<path d="M11 4h2v5h5v2h-5v5h-2v-5H6V9h5V4z"/>',
+    "Lieu public":'<path d="M12 3l9 6v2h-2v8H5v-8H3V9l9-6zm0 2.4L7 8.7V11h10V8.7L12 5.4z"/>',
+    "Gare / transport":'<path d="M6 3h12v11a3 3 0 01-3 3l1 2v1H8v-1l1-2a3 3 0 01-3-3V3zm2 3v4h8V6H8z"/>',
+    "Campus":'<path d="M12 3l11 6-11 6L1 9l11-6zm-7 9v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4l-7 3.8L5 12z"/>',
+    "Autre":'<path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/>'
+  };
+  var SEED=[
+    // Centre-ville — Drouet d'Erlon & abords
+    {id:"s1",name:"Pharmacie d'Erlon",type:"Pharmacie",lat:49.2563271,lng:4.0267933,hours:"Tlj 8h–19h50 (dont dimanche)"},
+    {id:"s2",name:"Pharmacie Bride Charlier Lafayette",type:"Pharmacie",lat:49.2553691,lng:4.0274256,hours:"Lun–Sam 9h–20h"},
+    {id:"s3",name:"L'Apostrophe",type:"Commerce refuge",lat:49.2557409,lng:4.0265767,hours:"Tlj 10h–00h"},
+    {id:"s4",name:"The Glue Pot",type:"Commerce refuge",lat:49.2554833,lng:4.0266971,hours:"Soir, tard jeu–sam"},
+    {id:"s5",name:"Le Tablier Reims",type:"Commerce refuge",lat:49.2549899,lng:4.0276162,hours:"Tlj 12h–23h30"},
+    {id:"s6",name:"Maison Gloria Reims",type:"Commerce refuge",lat:49.2570781,lng:4.0264001,hours:"Tlj 9h–01h"},
+    {id:"s7",name:"Hôtel Crystal",type:"Commerce refuge",lat:49.2568667,lng:4.0264581,hours:"Réception 24h/24"},
+    {id:"s8",name:"Hôtel Le Bristol",type:"Commerce refuge",lat:49.2565458,lng:4.0266777,hours:"Réception 24h/24"},
+    {id:"s9",name:"Hôtel Centre Reims (Best Western)",type:"Commerce refuge",lat:49.2562616,lng:4.0261921,hours:"Réception 24h/24"},
+    // Centre-ville — institutions & transports
+    {id:"s10",name:"Gare de Reims",type:"Gare / transport",lat:49.25863,lng:4.02497,hours:"Env. 4h45–22h15"},
+    {id:"s11",name:"Hôtel de Ville de Reims",type:"Lieu public",lat:49.2581057,lng:4.0317601,hours:"Lun–Ven 8h30–17h"},
+    {id:"s12",name:"Commissariat de police de Reims",type:"Autre",lat:49.256116,lng:4.021364,hours:"24h/24"},
+    {id:"s13",name:"Médiathèque Jean Falala",type:"Lieu public",lat:49.2529234,lng:4.0322217,hours:"Mar–Sam (voir horaires)"},
+    {id:"s14",name:"Bibliothèque Carnegie",type:"Lieu public",lat:49.2529733,lng:4.0354132,hours:"Mar–Sam (voir horaires)"},
+    {id:"s15",name:"Pharmacie Principale (Rue de Vesle)",type:"Pharmacie",lat:49.2536708,lng:4.0290201,hours:"Lun–Sam 9h–19h"},
+    {id:"s16",name:"Carrefour Express (Rue Cérès)",type:"Commerce refuge",lat:49.2569034,lng:4.037512,hours:"Tlj, jusqu'à 23h–00h"},
+    // Croix-Rouge — campus URCA
+    {id:"s17",name:"Pharmacie Croix Rouge",type:"Pharmacie",lat:49.2358597,lng:4.0070391,hours:"Lun–Sam 9h–19h"},
+    {id:"s18",name:"Campus Croix-Rouge (URCA)",type:"Campus",lat:49.2371125,lng:4.0024561,hours:"Lun–Ven 8h–19h"},
+    {id:"s19",name:"BU Robert de Sorbon",type:"Campus",lat:49.2356234,lng:4.0011682,hours:"Lun–Ven 9h–18h"},
+    {id:"s20",name:"WAY DELICE (Av. Kennedy)",type:"Commerce refuge",lat:49.2356961,lng:4.007589,hours:"Tlj tard (jusqu'à 2h ven–sam)"}
+  ];
+
+  // --- Stockage local : défini plus haut (avant i18n) ---
+
+  var points=jget("safespot_pts",null)||SEED.slice();
+  var contacts=jget("safespot_contacts",{c1n:"",c1p:"",c2n:"",c2p:""});
+  var me=null, filter="Tous", markers={}, addMode=false, current=null, watchId=null, routeLayer=null;
+
+  // --- Carte ---
+  var map=L.map("map",{zoomControl:false}).setView(REIMS,REGION.zoom);
+  L.control.zoom({position:"topright"}).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
+    maxZoom:19,attribution:"&copy; OpenStreetMap contributors &copy; CARTO",subdomains:"abcd"
+  }).addTo(map);
+
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function pinIcon(type,hi){var s=ICONS[type]||ICONS["Autre"];return L.divIcon({className:"",iconSize:[36,36],iconAnchor:[18,34],html:'<div class="pin" style="background:'+(hi?"linear-gradient(135deg,#E0A458,#C0684A)":"#6B4630")+'"><svg viewBox="0 0 24 24">'+s+'</svg></div>'});}
+  function meIcon(){return L.divIcon({className:"",iconSize:[22,22],iconAnchor:[11,11],html:'<div class="me pulse"></div>'});}
+  function dist(a,b){var R=6371000,r=Math.PI/180,dla=(b[0]-a[0])*r,dlo=(b[1]-a[1])*r;var s=Math.sin(dla/2)*Math.sin(dla/2)+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dlo/2)*Math.sin(dlo/2);return 2*R*Math.asin(Math.sqrt(s));}
+  function fmt(m){return m<1000?Math.round(m)+" m":(m/1000).toFixed(m<10000?1:0)+" km";}
+  function el(id){return document.getElementById(id);}
+  function toast(m){var t=el("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("show");},2800);}
+
+  function drawMarkers(hi){
+    Object.keys(markers).forEach(function(id){map.removeLayer(markers[id]);});markers={};
+    points.forEach(function(p){
+      if(filter!=="Tous"&&p.type!==filter)return;
+      var mk=L.marker([p.lat,p.lng],{icon:pinIcon(p.type,p.id===hi)}).addTo(map);
+      mk.bindPopup('<span class="pop-t">'+esc(p.name)+'</span><span class="pop-m">'+esc(p.type)+(p.hours?' · '+esc(p.hours):'')+'</span>');
+      mk.on("click",function(){openDetail(p);});
+      markers[p.id]=mk;
+    });
+  }
+  function renderChips(){var c=el("chips");c.innerHTML="";TYPES.forEach(function(t){var b=document.createElement("button");b.className="chip";b.textContent=t;b.setAttribute("aria-pressed",t===filter);b.addEventListener("click",function(){filter=t;renderChips();drawMarkers();renderList();});c.appendChild(b);});}
+  function renderList(){
+    var arr=points.filter(function(p){return filter==="Tous"||p.type===filter;});
+    if(me){arr.forEach(function(p){p._d=dist(me,[p.lat,p.lng]);});arr.sort(function(a,b){return a._d-b._d;});}
+    el("count").textContent=arr.length+(me?t("count_sorted"):t("count_ref"));
+    var L2=el("list");
+    if(!arr.length){L2.innerHTML='<div class="empty">Aucun point sûr de ce type.<br>Ajoutez-en un avec « Ajouter ».</div>';return;}
+    L2.innerHTML="";
+    arr.forEach(function(p){
+      var row=document.createElement("div");row.className="item";
+      row.innerHTML='<div class="ic"><svg viewBox="0 0 24 24">'+(ICONS[p.type]||ICONS["Autre"])+'</svg></div><div class="it-main"><b>'+esc(p.name)+'</b><span>'+esc(p.type)+(p.hours?' · '+esc(p.hours):'')+'</span></div>'+(me?'<div class="dist">'+fmt(p._d)+'</div>':'');
+      row.addEventListener("click",function(){openDetail(p);});
+      L2.appendChild(row);
+    });
+  }
+
+  // --- Détail point sûr ---
+  function openDetail(p){current=p;el("dName").textContent=p.name;el("dMeta").textContent=p.type+(p.hours?" · "+p.hours:"")+(me?" · "+fmt(dist(me,[p.lat,p.lng])):"");el("detail").classList.add("open");map.setView([p.lat,p.lng],16);}
+  el("dClose").addEventListener("click",function(){el("detail").classList.remove("open");});
+  el("dRoute").addEventListener("click",function(){el("detail").classList.remove("open");if(current){routeTo([current.lat,current.lng],current.name);}});
+
+  // --- Géolocalisation ---
+  function locate(then,silent){
+    if(!navigator.geolocation){toast("Géolocalisation indisponible.");return;}
+    if(!silent)toast("Localisation en cours…");
+    navigator.geolocation.getCurrentPosition(function(pos){
+      me=[pos.coords.latitude,pos.coords.longitude];
+      if(window._meM)map.removeLayer(window._meM);
+      window._meM=L.marker(me,{icon:meIcon(),zIndexOffset:1000}).addTo(map);
+      if(!silent)map.setView(me,15);renderList();if(then)then();
+    },function(){toast(t("toast_located_off"));},{enableHighAccuracy:true,timeout:9000});
+  }
+
+  // --- Itinéraire à pied (OSRM, repli sur ligne droite) ---
+  var routeHalo=null;
+  function drawRoute(coords){
+    if(routeLayer)map.removeLayer(routeLayer);
+    if(routeHalo)map.removeLayer(routeHalo);
+    // Halo blanc large sous le tracé : le chemin reste lisible quel que soit le fond de carte
+    routeHalo=L.polyline(coords,{color:"#FFFFFF",weight:11,opacity:.85,lineCap:"round",lineJoin:"round"}).addTo(map);
+    routeLayer=L.polyline(coords,{color:"#B85C36",weight:6,opacity:1,lineCap:"round",lineJoin:"round"}).addTo(map);
+    document.getElementById("map").classList.add("routing");
+    map.fitBounds(L.latLngBounds(coords).pad(.25));
+  }
+  function clearRoute(){
+    if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
+    if(routeHalo){map.removeLayer(routeHalo);routeHalo=null;}
+    document.getElementById("map").classList.remove("routing");
+  }
+  function routeTo(dest,label){
+    var go=function(){
+      drawRoute([me,dest]); // repli immédiat
+      var url="https://router.project-osrm.org/route/v1/foot/"+me[1]+","+me[0]+";"+dest[1]+","+dest[0]+"?overview=full&geometries=geojson";
+      fetch(url).then(function(r){return r.json();}).then(function(d){
+        if(d&&d.routes&&d.routes[0]){
+          var c=d.routes[0].geometry.coordinates.map(function(p){return [p[1],p[0]];});
+          drawRoute(c);
+          var min=Math.round(d.routes[0].duration/60);
+          toast("Vers "+label+" · "+fmt(d.routes[0].distance)+" · ~"+min+" min à pied");
+        }else{toast("Vers "+label+" · "+fmt(dist(me,dest)));}
+      }).catch(function(){toast("Vers "+label+" · "+fmt(dist(me,dest))+" (itinéraire direct)");});
+    };
+    me?go():locate(go);
+  }
+  function nearest(){
+    logEvent("near_search");
+    var go=function(){var best=null;points.forEach(function(p){var d=dist(me,[p.lat,p.lng]);if(!best||d<best.d)best={p:p,d:d};});if(!best){toast("Aucun point sûr.");return;}drawMarkers(best.p.id);routeTo([best.p.lat,best.p.lng],best.p.name);};
+    me?go():locate(go);
+  }
+  el("btnLocate").addEventListener("click",function(){locate();});
+  el("btnNear").addEventListener("click",nearest);
+
+  // --- Recherche d'adresse (Nominatim) ---
+  function doSearch(){
+    logEvent("search_used");
+    var q=el("search").value.trim();if(q.length<3){toast("Tapez au moins 3 lettres.");return;}
+    toast("Recherche…");
+    var url="https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes="+REGION.searchCountryCode+"&accept-language="+REGION.country.toLowerCase()+"&q="+encodeURIComponent(q);
+    fetch(url,{headers:{"Accept":"application/json"}}).then(function(r){return r.json();}).then(function(arr){
+      var box=el("results");box.innerHTML="";
+      if(!arr||!arr.length){box.classList.remove("on");toast("Aucun résultat.");return;}
+      arr.forEach(function(it){var d=document.createElement("div");d.textContent=it.display_name;d.addEventListener("click",function(){box.classList.remove("on");el("search").value="";map.setView([+it.lat,+it.lon],16);L.popup().setLatLng([+it.lat,+it.lon]).setContent('<b>'+esc(it.display_name.split(",")[0])+'</b>').openOn(map);});box.appendChild(d);});
+      box.classList.add("on");
+    }).catch(function(){toast("Recherche indisponible (hors-ligne ?).");});
+  }
+  el("btnSearch").addEventListener("click",doSearch);
+  el("search").addEventListener("keydown",function(e){if(e.key==="Enter")doSearch();});
+
+  // --- Ajout d'un point sûr ---
+  var pending=null;
+  function startAdd(){addMode=true;el("addHint").classList.add("on");collapse(true);}
+  function stopAdd(){addMode=false;el("addHint").classList.remove("on");}
+  map.on("click",function(e){if(!addMode)return;pending=e.latlng;stopAdd();el("pName").value="";el("modal").classList.add("open");setTimeout(function(){el("pName").focus();},80);});
+  el("btnAdd").addEventListener("click",startAdd);
+  el("cancelAdd").addEventListener("click",function(){el("modal").classList.remove("open");});
+  var ALLOWED=["Commerce refuge","Pharmacie","Lieu public","Gare / transport","Campus","Autre"];
+  function cleanText(s){return String(s).replace(/[\u0000-\u001F\u007F]/g,"").trim();}
+  function validatePoint(name,type,lat,lng){
+    if(name.length<2||name.length>60)return "Le nom doit faire entre 2 et 60 caractères.";
+    if(ALLOWED.indexOf(type)<0)return "Type invalide.";
+    if(!(lat>=-90&&lat<=90&&lng>=-180&&lng<=180))return "Position invalide.";
+    return null;
+  }
+  function canSubmit(){var last=parseInt(lget("safespot_lastadd")||"0",10);return Date.now()-last>=30000;}
+  el("saveAdd").addEventListener("click",function(){
+    var n=cleanText(el("pName").value),type=el("pType").value;
+    var err=validatePoint(n,type,pending.lat,pending.lng);
+    if(err){toast(err);return;}
+    if(!canSubmit()){toast("Patientez un instant avant une nouvelle proposition.");return;}
+    var rec={name:n,type:type,lat:pending.lat,lng:pending.lng,hours:""};
+    el("modal").classList.remove("open");lset("safespot_lastadd",String(Date.now()));
+    if(sb){
+      sb.from("safe_points").insert([rec]).then(function(res){
+        if(res.error){toast("Cloud : "+res.error.message);return;}
+        logEvent("point_added");
+        toast(t("toast_proposed"));map.setView([rec.lat,rec.lng],16);
+      });
+    }else{
+      var p={id:"u"+Date.now(),name:rec.name,type:rec.type,lat:rec.lat,lng:rec.lng,hours:""};
+      points.push(p);jset("safespot_pts",points);drawMarkers();renderList();map.setView([p.lat,p.lng],16);toast(t("toast_added_local"));
+    }
+  });
+
+  // --- Réglages / contacts ---
+  function openSettings(){el("c1n").value=contacts.c1n;el("c1p").value=contacts.c1p;el("c2n").value=contacts.c2n;el("c2p").value=contacts.c2p;el("settings").classList.add("open");}
+  el("btnSettings").addEventListener("click",openSettings);
+  el("closeSettings").addEventListener("click",function(){el("settings").classList.remove("open");});
+  el("saveSettings").addEventListener("click",function(){contacts={c1n:el("c1n").value.trim(),c1p:el("c1p").value.trim(),c2n:el("c2n").value.trim(),c2p:el("c2p").value.trim()};jset("safespot_contacts",contacts);el("settings").classList.remove("open");toast("Contacts enregistrés.");});
+  function firstContact(){return contacts.c1p?{n:contacts.c1n||"contact",p:contacts.c1p}:(contacts.c2p?{n:contacts.c2n||"contact",p:contacts.c2p}:null);}
+  function alertMsg(){var base="Besoin d'aide. ";if(me)base+="Ma position : https://maps.google.com/?q="+me[0]+","+me[1];else base+="Je n'ai pas pu localiser ma position.";return base;}
+
+  // --- SOS ---
+  var sosTimer=null;
+  function openSos(){logEvent("sos_open");el("sosActions").style.display="none";el("sosCount").textContent="5";el("sosOverlay").classList.add("on");locate(null,true);var n=5;sosTimer=setInterval(function(){n--;el("sosCount").textContent=n;if(n<=0){clearInterval(sosTimer);fireSos();}},1000);}
+  function closeSos(){clearInterval(sosTimer);el("sosOverlay").classList.remove("on");}
+  function fireSos(){
+    el("sosCount").textContent="!";
+    var c=firstContact(),msg=alertMsg(),box=el("sosActions");box.innerHTML="";box.style.display="flex";
+    if(c){
+      var sms=document.createElement("a");sms.className="white";sms.href="sms:"+c.p+"?&body="+encodeURIComponent(msg);sms.textContent=t("sos_sms",{name:c.n});box.appendChild(sms);
+      var call=document.createElement("a");call.className="dark";call.href="tel:"+c.p.replace(/\s/g,"");call.textContent=t("sos_call",{name:c.n});box.appendChild(call);
+    }else{
+      var set=document.createElement("button");set.className="white";set.textContent=t("sos_add_contact");set.addEventListener("click",function(){closeSos();openSettings();});box.appendChild(set);
+    }
+    var em=document.createElement("a");em.className="line";em.href=tel(REGION.emergency);em.textContent=t("sos_call_emergency");box.appendChild(em);
+    if(navigator.share){var sh=document.createElement("button");sh.className="line";sh.textContent=t("sos_share");sh.addEventListener("click",function(){navigator.share({title:"SafeSpot",text:msg}).catch(function(){});});box.appendChild(sh);}
+  }
+  el("btnSos").addEventListener("click",openSos);
+  el("sosCancel").addEventListener("click",closeSos);
+
+  // --- Mode "Rentrer en sécurité" (suivi en direct) ---
+  function startTrip(){
+    logEvent("trip_start");
+    var go=function(){
+      el("trip").classList.add("on");el("tripInfo").textContent="Suivi de position actif";
+      var c=firstContact();
+      if(c){var msg="Je rentre, je partage mon trajet en direct. "+alertMsg();if(navigator.share){navigator.share({title:"SafeSpot — trajet",text:msg}).catch(function(){});}}
+      else toast("Astuce : ajoutez un contact de confiance dans les réglages.");
+      if(navigator.geolocation){watchId=navigator.geolocation.watchPosition(function(pos){me=[pos.coords.latitude,pos.coords.longitude];if(window._meM)map.removeLayer(window._meM);window._meM=L.marker(me,{icon:meIcon(),zIndexOffset:1000}).addTo(map);map.panTo(me);renderList();},function(){},{enableHighAccuracy:true,maximumAge:5000});}
+    };
+    me?go():locate(go);
+  }
+  function endTrip(){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}el("trip").classList.remove("on");clearRoute();toast("Bien arrivée. Trajet terminé.");}
+  el("btnTrip").addEventListener("click",startTrip);
+  el("tripEnd").addEventListener("click",endTrip);
+
+  // --- Bottom sheet ---
+  function collapse(state){el("sheet").classList.toggle("collapsed",state);var b=state?"104px":"calc(44vh + 14px)";el("fabs").style.bottom=b;el("btnSos").style.bottom=b;}
+  var collapsed=false;
+  function toggleSheet(){collapsed=!collapsed;collapse(collapsed);}
+  var suppressTap=false;
+  el("grip").addEventListener("click",function(){if(suppressTap){suppressTap=false;return;}toggleSheet();});
+  el("grip").addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleSheet();}});
+
+  // Glissement tactile du panneau (suit le doigt, bascule au relâchement)
+  (function(){
+    var sheet=el("sheet"),startY=null,startH=null,dragging=false;
+    var vh=function(){return window.innerHeight;};
+    function onStart(e){
+      var t=e.touches?e.touches[0]:e;startY=t.clientY;startH=sheet.getBoundingClientRect().height;
+      dragging=true;sheet.style.transition="none";el("fabs").style.transition="none";el("btnSos").style.transition="none";
+    }
+    function onMove(e){
+      if(!dragging)return;
+      var t=e.touches?e.touches[0]:e;
+      if(Math.abs(startY-t.clientY)>8)suppressTap=true;
+      var h=Math.min(vh()*0.8,Math.max(70,startH+(startY-t.clientY)));
+      sheet.style.height=h+"px";
+      var b=(h+14)+"px";el("fabs").style.bottom=b;el("btnSos").style.bottom=b;
+      if(e.cancelable)e.preventDefault();
+    }
+    function onEnd(){
+      if(!dragging)return;dragging=false;
+      sheet.style.transition="";el("fabs").style.transition="";el("btnSos").style.transition="";
+      var h=sheet.getBoundingClientRect().height;
+      collapsed=h<vh()*0.26;             // seuil : sous ~26% on replie
+      sheet.style.height="";             // on rend la main au CSS
+      collapse(collapsed);
+    }
+    var g=el("grip");
+    g.addEventListener("touchstart",onStart,{passive:true});
+    g.addEventListener("touchmove",onMove,{passive:false});
+    g.addEventListener("touchend",onEnd);
+    g.addEventListener("mousedown",function(e){onStart(e);
+      var mv=function(ev){onMove(ev);},up=function(){onEnd();document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);};
+      document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);
+    });
+  })();
+
+  // --- Statistiques d'usage anonymes (aucune donnée personnelle) ---
+  // Sert à produire le bilan d'usage promis dans le cadre du pilote (URCA / Ville).
+  var EVENT_TYPES=["app_open","near_search","trip_start","sos_open","point_added","search_used"];
+  function logEvent(type){
+    if(EVENT_TYPES.indexOf(type)<0)return;
+    if(!sb)return; // en mode local, pas de journalisation (rien à agréger)
+    sb.from("app_events").insert([{type:type}]).then(function(){});
+  }
+  function setStat(on){var s=el("cloudStat"),t=el("cloudTxt");if(!s)return;var was=s.style.color;s.style.color=on?"#7CCB7C":"#C9B89E";s.title=on?"Connecté au cloud":"Mode local (démo)";if(t)t.textContent=on?"cloud":"local";if(on&&was!=="#7CCB7C"){s.classList.remove("pulseonce");void s.offsetWidth;s.classList.add("pulseonce");}}
+  function loadCloud(){
+    if(!sb){setStat(false);return;}
+    setStat(true);
+    sb.from("safe_points").select("*").eq("approved",true).then(function(res){
+      if(res.error){toast("Cloud : "+res.error.message);setStat(false);return;}
+      if(res.data&&res.data.length){
+        points=res.data.map(function(r){return {id:"db"+r.id,_dbid:r.id,name:r.name,type:r.type,lat:Number(r.lat),lng:Number(r.lng),hours:r.hours||""};});
+        drawMarkers();renderList();
+      }
+    });
+  }
+
+  // --- Signalement d'un point ---
+  function reportPoint(){
+    if(!current)return;
+    el("detail").classList.remove("open");
+    if(sb&&current._dbid){
+      sb.from("point_reports").insert([{point_id:current._dbid,reason:"Signalé via l'app"}]).then(function(res){
+        if(res.error){toast("Cloud : "+res.error.message);return;}
+        toast(t("toast_reported"));
+      });
+    }else{toast("Signalement noté (mode local).");}
+  }
+  el("dReport").addEventListener("click",reportPoint);
+
+  // --- Mode admin (modération depuis l'app) ---
+  function showAdmin(logged){el("adminLogin").style.display=logged?"none":"block";el("adminPanel").style.display=logged?"block":"none";}
+  function openAdmin(){
+    el("settings").classList.remove("open");
+    if(!sb){toast("Configurez d'abord le cloud (clés Supabase).");return;}
+    el("admin").classList.add("open");
+    sb.auth.getSession().then(function(r){var logged=!!(r&&r.data&&r.data.session);showAdmin(logged);if(logged)loadAdmin();});
+  }
+  function loadAdmin(){
+    sb.from("safe_points").select("*").eq("approved",false).order("created_at",{ascending:false}).then(function(res){
+      var box=el("adminPending");box.innerHTML="";
+      if(res.error){box.innerHTML='<div class="empty">'+esc(res.error.message)+'</div>';return;}
+      var d=res.data||[];
+      if(!d.length){box.innerHTML='<div class="empty">Rien à valider.</div>';return;}
+      d.forEach(function(r){
+        var row=document.createElement("div");row.className="arow";
+        row.innerHTML='<div class="am"><b>'+esc(r.name)+'</b><span>'+esc(r.type)+'</span></div>';
+        var ok=document.createElement("button");ok.className="mini ok";ok.textContent=t("admin_publish");ok.addEventListener("click",function(){adminApprove(r.id);});
+        var no=document.createElement("button");no.className="mini no";no.textContent=t("admin_delete");no.addEventListener("click",function(){adminDelete(r.id);});
+        row.appendChild(ok);row.appendChild(no);box.appendChild(row);
+      });
+    });
+    sb.from("point_reports").select("id,reason,created_at,point_id,safe_points(name)").order("created_at",{ascending:false}).limit(50).then(function(res){
+      var box=el("adminReports");box.innerHTML="";
+      if(res.error){box.innerHTML='<div class="empty">'+esc(res.error.message)+'</div>';return;}
+      var d=res.data||[];
+      if(!d.length){box.innerHTML='<div class="empty">Aucun signalement.</div>';return;}
+      d.forEach(function(r){
+        var nm=(r.safe_points&&r.safe_points.name)?r.safe_points.name:("Point #"+r.point_id);
+        var row=document.createElement("div");row.className="arow";
+        row.innerHTML='<div class="am"><b>'+esc(nm)+'</b><span>'+esc(r.reason||"signalé")+'</span></div>';
+        var no=document.createElement("button");no.className="mini no";no.textContent=t("admin_remove");no.addEventListener("click",function(){adminDelete(r.point_id);});
+        row.appendChild(no);box.appendChild(row);
+      });
+    });
+    loadStats();
+  }
+  function adminApprove(id){sb.from("safe_points").update({approved:true}).eq("id",id).then(function(res){if(res.error){toast("Cloud : "+res.error.message);return;}toast("Publié.");loadAdmin();loadCloud();});}
+  function adminDelete(id){sb.from("safe_points").delete().eq("id",id).then(function(res){if(res.error){toast("Cloud : "+res.error.message);return;}toast("Supprimé.");loadAdmin();loadCloud();});}
+
+  var STAT_LABELS={app_open:"Ouvertures",near_search:"« Plus proche »",trip_start:"Trajets « Rentrer »",sos_open:"SOS déclenchés",point_added:"Points proposés",search_used:"Recherches adresse"};
+  function loadStats(){
+    var box=el("adminStats");if(!box)return;box.innerHTML='<div class="empty">Chargement…</div>';
+    var results={},done=0;
+    EVENT_TYPES.forEach(function(t){
+      sb.from("app_events").select("id",{count:"exact",head:true}).eq("type",t).then(function(res){
+        results[t]=res.error?0:(res.count||0);done++;
+        if(done===EVENT_TYPES.length)renderStats(results);
+      });
+    });
+  }
+  function renderStats(results){
+    var box=el("adminStats");box.innerHTML="";
+    EVENT_TYPES.forEach(function(t){
+      var d=document.createElement("div");d.className="statpill";
+      d.innerHTML="<b>"+(results[t]||0)+"</b><span>"+STAT_LABELS[t]+"</span>";
+      box.appendChild(d);
+    });
+    var exp=document.createElement("button");exp.className="mini ok";exp.style.flex="0 0 100%";exp.style.marginTop="4px";
+    exp.textContent=t("admin_export");
+    exp.addEventListener("click",function(){exportStatsCsv(results);});
+    box.appendChild(exp);
+  }
+  function exportStatsCsv(results){
+    var lines=["indicateur;valeur"];
+    EVENT_TYPES.forEach(function(t){lines.push(STAT_LABELS[t]+";"+(results[t]||0));});
+    lines.push("date export;"+new Date().toLocaleDateString("fr-FR"));
+    var blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
+    var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="safespot_bilan_usage.csv";a.click();
+  }
+  el("openAdmin").addEventListener("click",openAdmin);
+  el("openAbout").addEventListener("click",function(){el("settings").classList.remove("open");el("about").classList.add("open");});
+  el("aboutClose").addEventListener("click",function(){el("about").classList.remove("open");});
+  el("adminCloseL").addEventListener("click",function(){el("admin").classList.remove("open");});
+  el("adminCloseP").addEventListener("click",function(){el("admin").classList.remove("open");});
+  el("adminLogout").addEventListener("click",function(){sb.auth.signOut().then(function(){showAdmin(false);toast("Déconnecté.");});});
+  el("adminDoLogin").addEventListener("click",function(){
+    var email=el("aEmail").value.trim(),pass=el("aPass").value;
+    if(!email||!pass){toast("E-mail et mot de passe requis.");return;}
+    sb.auth.signInWithPassword({email:email,password:pass}).then(function(r){
+      if(r.error){toast("Connexion : "+r.error.message);return;}
+      el("aPass").value="";showAdmin(true);loadAdmin();toast("Connecté en admin.");
+    });
+  });
+
+  // --- Assistante SafeSpot (IA via relais, ou mode démo) ---
+  var chatHist=[];
+  function chatAdd(role,text,think){
+    var log=el("chatlog");
+    var m=document.createElement("div");m.className="msg "+(role==="user"?"user":"bot")+(think?" think":"");
+    m.textContent=text;log.appendChild(m);log.scrollTop=log.scrollHeight;return m;
+  }
+  function appContext(){
+    var ctx="Points sûrs référencés : "+points.length+".";
+    if(me){
+      var best=null;points.forEach(function(p){var d=dist(me,[p.lat,p.lng]);if(!best||d<best.d)best={p:p,d:d};});
+      if(best)ctx+=" Point sûr le plus proche de l'utilisatrice : "+best.p.name+" ("+best.p.type+"), à "+fmt(best.d)+".";
+    }else{ctx+=" Position de l'utilisatrice inconnue (géolocalisation non activée).";}
+    return ctx;
+  }
+  var DEMO=[
+    [/sos|urgence|danger|aide/i,"En danger immédiat, appelez le "+emergencyLine()+". Dans l'app, le bouton rouge SOS prépare votre position et peut prévenir votre contact de confiance en 5 secondes."],
+    [/proche|pr[eè]s|o[uù] aller/i,"Touchez le bouton losange (en bas à droite) : je calcule le point sûr le plus proche et je trace l'itinéraire à pied."],
+    [/rentr|trajet|suivi/i,"Le bouton vert « Rentrer » active le suivi en direct de votre position et propose de partager votre trajet à un proche. Touchez « Je suis arrivée » à la fin."],
+    [/contact/i,"Ouvrez les réglages (roue dentée en haut à droite) pour enregistrer jusqu'à deux contacts de confiance. Ils sont utilisés par le SOS et le mode trajet."],
+    [/ajout|proposer|nouveau point/i,"Touchez « Ajouter » puis l'endroit sur la carte. Votre proposition sera vérifiée avant d'être visible par les autres."],
+    [/peur|angoiss|stress|seule/i,"Ce que vous ressentez est légitime. Concrètement : restez dans les zones éclairées et passantes, gardez votre téléphone en main, et regardez le point sûr le plus proche — le bouton losange vous y guide. Si le sentiment de danger se précise, appelez le "+REGION.police+"."],
+  ];
+  function demoReply(q){
+    for(var i=0;i<DEMO.length;i++){if(DEMO[i][0].test(q))return DEMO[i][1];}
+    return "Je peux vous aider à trouver un point sûr, activer le mode trajet, configurer le SOS ou vos contacts. Posez-moi une question là-dessus — et en cas d'urgence réelle, le "+REGION.police+" ou le "+REGION.emergency+" restent la priorité.";
+  }
+  function askAssistant(q){
+    chatAdd("user",q);chatHist.push({role:"user",content:q});
+    if(!ASSIST_ENDPOINT){
+      setTimeout(function(){var r=demoReply(q);chatAdd("bot",r);chatHist.push({role:"assistant",content:r});},350);
+      return;
+    }
+    var thinking=chatAdd("bot","",true);
+    thinking.innerHTML='<svg class="spin" viewBox="0 0 24 24" style="width:15px;height:15px;vertical-align:middle;fill:none;stroke:#8A7A68;stroke-width:2.4"><circle cx="12" cy="12" r="9" stroke-opacity=".25"/><path d="M21 12a9 9 0 00-9-9"/></svg>';
+    var sys="Tu es l'assistante SafeSpot, intégrée à une application de sécurité personnelle pour femmes ("+REGION.cityName+", "+REGION.countryName+"). Réponds en français, avec chaleur et concision (3 phrases max en général). Tu aides à : utiliser l'app (SOS, contacts de confiance, mode Rentrer, points sûrs, itinéraire), donner des conseils de sécurité concrets et déculpabilisants, rassurer sans minimiser. Règle absolue : en cas de danger immédiat ou de violence en cours, oriente d'abord vers le "+emergencyLine()+", et le "+REGION.womenHelpline+" pour les violences faites aux femmes. Tu ne remplaces jamais les secours. Contexte de l'app : "+appContext();
+    fetch(ASSIST_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({system:sys,messages:chatHist.slice(-12)})
+    }).then(function(r){return r.json();}).then(function(d){
+      var txt=(d&&d.reply)?d.reply:"Désolée, je n'ai pas pu répondre. Réessayez.";
+      thinking.classList.remove("think");thinking.textContent=txt;chatHist.push({role:"assistant",content:txt});
+    }).catch(function(){thinking.classList.remove("think");thinking.textContent="Connexion à l'assistante impossible. Mode démo : "+demoReply(q);});
+  }
+  el("btnAssist").addEventListener("click",function(){
+    el("assist").classList.add("open");
+    if(!chatHist.length){chatAdd("bot",t("msg_hello")+(ASSIST_ENDPOINT?"":t("msg_demo_suffix")));}
+    setTimeout(function(){el("chatIn").focus();},80);
+  });
+  el("assistClose").addEventListener("click",function(){el("assist").classList.remove("open");});
+  function sendChat(){var q=el("chatIn").value.trim();if(!q)return;el("chatIn").value="";askAssistant(q);}
+  el("chatSend").addEventListener("click",sendChat);
+  el("chatIn").addEventListener("keydown",function(e){if(e.key==="Enter")sendChat();});
+
+  // --- Actions rapides du chat (pilotent l'app) ---
+  Array.prototype.forEach.call(document.querySelectorAll(".qa"),function(b){
+    b.addEventListener("click",function(){
+      var act=b.getAttribute("data-act");
+      el("assist").classList.remove("open");
+      if(act==="near"){nearest();}
+      else if(act==="trip"){startTrip();}
+      else if(act==="sos"){openSettings();toast("Enregistrez un contact de confiance, puis testez le bouton rouge SOS.");}
+    });
+  });
+
+  // --- Onboarding (premier lancement) ---
+  // Applique la langue à tous les éléments porteurs de data-i18n / data-i18n-ph
+  function applyLang(){
+    document.documentElement.lang=LANG;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"),function(e){e.textContent=t(e.getAttribute("data-i18n"));});
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n-ph]"),function(e){e.setAttribute("placeholder",t(e.getAttribute("data-i18n-ph")));});
+    // libellés composés (onboarding, about, legal, aria)
+    setTxt("legalNote",t("legal_note"));
+    setTxt("assistSub",t("assist_sub"));
+    setTxt("onbF1t",t("onb_f1_t"));setTxt("onbF1d",t("onb_f1_d"));
+    setTxt("onbF2t",t("onb_f2_t"));setTxt("onbF2d",t("onb_f2_d"));
+    setTxt("onbF3t",t("onb_f3_t"));setTxt("onbF3d",t("onb_f3_d"));
+    setTxt("onbLegal",t("onb_legal"));
+    setTxt("assistTitle",t("assist_title"));
+    setTxt("aboutDesc",t("about_desc"));setTxt("aboutOrg",t("about_org"));
+    setTxt("aboutImportant",t("about_important"));setTxt("aboutPrivacy",t("about_privacy"));
+    setTxt("sosTitle",t("sos_title"));setTxt("sosWait",t("sos_wait"));
+    setTxt("tagline1",t("tagline"));setTxt("tagline2",t("tagline"));setTxt("aboutTagline",t("tagline")+" · v1.0");
+    setAria("btnNear","near_aria");setAria("btnLocate","locate_aria");setAria("btnAssist","assist_aria");
+    renderList();renderChips();
+  }
+  function setTxt(id,val){var e=el(id);if(e)e.textContent=val;}
+  function setAria(id,key){var e=el(id);if(e)e.setAttribute("aria-label",t(key));}
+  function setLang(l){if(!I18N[l])return;LANG=l;lset("safespot_lang",l);applyLang();}
+
+  function applyRegionToStaticText(){ applyLang(); }
+  applyRegionToStaticText();
+  (function(){var ls=el("langSel");if(ls){ls.value=LANG;ls.addEventListener("change",function(){setLang(ls.value);});}})();
+
+  el("onbGo").addEventListener("click",function(){
+    el("onb").classList.remove("on");
+    lset("safespot_seen","1");
+    locate(null,true); // demande la géoloc au bon moment : après le consentement visuel
+  });
+  if(!lget("safespot_seen")){el("onb").classList.add("on");}
+  if(!MAP_OK){setTimeout(function(){toast(t("toast_map_off"));},1200);}
+
+  renderChips();drawMarkers();renderList();loadCloud();logEvent("app_open");
+  setTimeout(function(){map.invalidateSize();},250);
+})();
+</script>
+<script>
+  /* PWA : enregistre le service worker uniquement servi en http/https (pas en file://). */
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
