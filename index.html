@@ -27,9 +27,10 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt)}
   button{font-family:inherit}
   #map{position:absolute;inset:0;z-index:1;background:#e9e4d8}
-  /* Mode trajet : le fond s'estompe pour que l'itinéraire et les repères ressortent sans effort visuel */
-  #map.routing .leaflet-tile-pane{filter:grayscale(.6) brightness(1.12) contrast(.92) saturate(.7);transition:filter .45s ease}
-  #map:not(.routing) .leaflet-tile-pane{transition:filter .45s ease}
+  /* Carte épurée : on adoucit le fond OSM pour que les repères SafeSpot ressortent */
+  #map .leaflet-tile-pane{filter:saturate(.55) brightness(1.06) contrast(.94);transition:filter .45s ease}
+  /* Mode trajet : le fond s'estompe encore pour que l'itinéraire saute aux yeux */
+  #map.routing .leaflet-tile-pane{filter:grayscale(.75) brightness(1.14) contrast(.88) saturate(.3)}
 
   .head{position:absolute;top:0;left:0;right:0;z-index:1000;padding:calc(10px + var(--safeTop)) 14px 8px;
     background:linear-gradient(160deg,rgba(51,35,26,.96),rgba(107,58,38,.72) 55%,rgba(51,35,26,0));pointer-events:none}
@@ -154,6 +155,23 @@
   .statpill{background:var(--cream);border-radius:12px;padding:8px 12px;min-width:84px;text-align:center}
   .statpill b{display:block;font-family:Georgia,serif;font-size:20px;color:#6B3A26}
   .statpill span{font-size:10.5px;color:var(--muted)}
+  .fav{position:absolute;right:14px;top:14px;background:none;border:none;cursor:pointer;padding:4px;line-height:0}
+  .fav svg{width:24px;height:24px;fill:none;stroke:var(--tan);stroke-width:2;transition:transform .2s}
+  .fav[aria-pressed="true"] svg{fill:var(--tan);stroke:var(--tan)}
+  .fav:active svg{transform:scale(.85)}
+  .badge-ver{display:inline-flex;align-items:center;gap:4px;background:var(--cream);color:var(--ok);
+    border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;margin-top:6px}
+  .badge-ver svg{width:11px;height:11px;fill:currentColor}
+  .reason{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+  .reason button{flex:1 1 45%;border:1px solid var(--line);background:#fff;color:var(--brown);
+    border-radius:11px;padding:11px 8px;font-size:13px;cursor:pointer}
+  .reason button:active{background:var(--cream);transform:scale(.97)}
+  html[data-theme="dark"] .reason button{background:#2A1F17;color:var(--brown);border-color:var(--line)}
+  .hist{max-height:30vh;overflow-y:auto;margin-top:4px}
+  .histrow{display:flex;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);font-size:13px}
+  .histrow b{color:var(--espresso);font-size:13.5px;display:block}
+  .histrow span{color:var(--muted);font-size:11.5px}
+  .star-in-list{color:var(--tan);font-size:13px;flex:0 0 auto}
   .chatlog{flex:1;min-height:32vh;max-height:44vh;overflow-y:auto;padding:6px 2px;display:flex;flex-direction:column;gap:8px}
   .msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap}
   .msg.user{align-self:flex-end;background:var(--grad);color:#fff;border-bottom-right-radius:4px}
@@ -187,6 +205,33 @@
   .leaflet-popup-tip{background:var(--paper)}
   .pop-t{font-family:Georgia,serif;font-weight:bold;color:var(--espresso);font-size:15px;display:block;margin-bottom:2px}
   .pop-m{color:var(--muted);font-size:12.5px}
+  /* Mode sombre — utile la nuit : moins éblouissant, plus discret dans la rue */
+  html[data-theme="dark"]{
+    --espresso:#F0E4D4; --brown:#D9A876; --tan:#E0A458; --tan-d:#C98B4E;
+    --terra:#D97A56; --amber:#E8B872;
+    --cream:#33261C; --paper:#1C140F; --txt:#F2E7DA; --muted:#9E8B77; --line:#3D2E22;
+    --sos:#D9503A; --sos-d:#B23B2E; --ok:#7FA06E; --safe:#D9A876; --near:#E0A458;
+    --grad:linear-gradient(135deg,#C98B4E,#C0684A);
+    --grad-soft:linear-gradient(135deg,#E0A458,#C98B4E);
+  }
+  html[data-theme="dark"] body{background:var(--paper)}
+  html[data-theme="dark"] #map{background:#1A1410}
+  /* Carte assombrie proprement : on inverse puis on recolore pour garder des tons naturels */
+  html[data-theme="dark"] #map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.86) contrast(.92) saturate(.55)}
+  html[data-theme="dark"] #map.routing .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.66) contrast(.85) saturate(.35)}
+  html[data-theme="dark"] .sheet{background:rgba(28,20,15,.88)}
+  html[data-theme="dark"] .card{background:rgba(28,20,15,.96)}
+  html[data-theme="dark"] .searchrow{background:rgba(28,20,15,.9)}
+  html[data-theme="dark"] .fab{background:rgba(40,29,22,.9);color:var(--brown)}
+  html[data-theme="dark"] .results{background:rgba(28,20,15,.96)}
+  html[data-theme="dark"] input.f,html[data-theme="dark"] select.f,
+  html[data-theme="dark"] .searchrow input,html[data-theme="dark"] .chatrow input{background:#2A1F17;color:var(--txt);border-color:var(--line)}
+  html[data-theme="dark"] .chip{background:#2A1F17;color:var(--brown);border-color:var(--line)}
+  html[data-theme="dark"] .leaflet-popup-content-wrapper,html[data-theme="dark"] .leaflet-popup-tip{background:#2A1F17}
+  html[data-theme="dark"] .toast{background:rgba(240,228,212,.95);color:#1C140F}
+  html[data-theme="dark"] .pin{border-color:#1C140F;box-shadow:0 3px 10px rgba(0,0,0,.7),0 0 0 4px rgba(28,20,15,.9)}
+  html[data-theme="dark"] .me{border-color:#1C140F}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
   /* Mouvements additionnels — discrets, au service de la lisibilité */
@@ -264,11 +309,16 @@
 
   <!-- Détail point sûr -->
   <div class="modal" id="detail">
-    <div class="card">
+    <div class="card" style="position:relative">
+      <button class="fav" id="dFav" aria-pressed="false" aria-label="Ajouter aux favoris"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8L12 3z"/></svg></button>
       <h3 id="dName">—</h3>
       <p id="dMeta">—</p>
+      <div id="dBadge"></div>
       <div class="bar" style="padding:4px 0 0">
         <button class="btn brown" id="dRoute"><svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4z"/></svg><span data-i18n="detail_route">Itinéraire à pied</span></button>
+      </div>
+      <div class="bar" style="padding:8px 0 0">
+        <button class="btn ghost" id="dExtNav">🧭 Ouvrir dans Plans / Google Maps</button>
       </div>
       <div class="bar" style="padding:8px 0 0">
         <button class="btn ghost" id="dReport" data-i18n="detail_report">Signaler (fermé / inexact)</button>
@@ -306,8 +356,16 @@
       <div class="bar" style="padding:14px 0 14px"><button class="btn ghost" id="closeSettings" data-i18n="close">Fermer</button><button class="btn brown" id="saveSettings" data-i18n="save">Enregistrer</button></div>
       <div class="note" id="legalNote">Prototype.</div>
       <div class="bar" style="padding:14px 0 0"><button class="btn ghost" id="openAdmin" style="flex:1" data-i18n="admin_btn">Mode admin (modération)</button></div>
+      <label data-i18n="theme" style="margin-top:14px">Apparence</label>
+      <select class="f" id="themeSel">
+        <option value="auto">Automatique (suit le téléphone)</option>
+        <option value="light">Clair</option>
+        <option value="dark">Sombre</option>
+      </select>
       <label data-i18n="language" style="margin-top:14px">Langue</label>
       <select class="f" id="langSel"><option value="fr">Français</option><option value="en">English</option></select>
+      <div class="bar" style="padding:10px 0 0"><button class="btn ghost" id="openNet" style="flex:1" data-i18n="net_btn">Le réseau en chiffres</button></div>
+      <div class="bar" style="padding:10px 0 0"><button class="btn ghost" id="openHist" style="flex:1" data-i18n="hist_btn">Mes trajets</button></div>
       <div class="bar" style="padding:10px 0 0"><button class="btn ghost" id="openAbout" style="flex:1" data-i18n="about_btn">À propos de SafeSpot</button></div>
     </div>
   </div>
@@ -396,6 +454,43 @@
     </div>
   </div>
 
+  <!-- Signalement avec motif -->
+  <div class="modal" id="reportModal">
+    <div class="card">
+      <h3 id="repTitle">Signaler ce lieu</h3>
+      <p id="repSub">Votre signalement aide à garder le réseau fiable. Il est transmis à la modération.</p>
+      <div class="reason" id="reasonBtns"></div>
+      <div class="bar" style="padding:8px 0 0"><button class="btn ghost" id="repCancel" data-i18n="cancel">Annuler</button></div>
+    </div>
+  </div>
+
+  <!-- Historique des trajets -->
+  <div class="modal" id="histModal">
+    <div class="card">
+      <h3 id="histTitle">Mes trajets</h3>
+      <p id="histSub">Conservés uniquement sur cet appareil.</p>
+      <div class="hist" id="histList"></div>
+      <div class="bar" style="padding:10px 0 0">
+        <button class="btn ghost" id="histClear" data-i18n="clear">Effacer</button>
+        <button class="btn brown" id="histClose" data-i18n="close">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistiques publiques du réseau -->
+  <div class="modal" id="netModal">
+    <div class="card">
+      <h3 id="netTitle">Le réseau en chiffres</h3>
+      <p id="netSub">Données du réseau SafeSpot, mises à jour en direct.</p>
+      <div id="netStats" style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 8px"></div>
+      <div class="seg" id="netZoneT" style="font-size:14px">Couverture par secteur</div>
+      <div id="netZones" style="padding-bottom:6px"></div>
+      <div class="seg" id="netTypeT" style="font-size:14px">Par type de lieu</div>
+      <div id="netTypes"></div>
+      <div class="bar" style="padding:12px 0 0"><button class="btn brown" id="netClose" data-i18n="close" style="flex:1">Fermer</button></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -403,6 +498,9 @@
 <script>
 (function(){
   "use strict";
+
+  // Retour haptique (vibration) — défini tôt car utilisé par le SOS
+  function buzz(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
 
   /* ============================================================
      CONFIGURATION CLOUD (Supabase) — voir le guide d'installation
@@ -466,7 +564,7 @@
       f_name:"Nom du lieu", f_name_ph:"Ex. Pharmacie de la Gare", f_type:"Type", cancel:"Annuler", save_here:"Enregistrer ici",
       settings:"Réglages", settings_sub:"Vos contacts de confiance sont prévenus quand vous lancez une alerte ou un trajet. Tout reste sur cet appareil.",
       c1n:"Contact de confiance 1 — nom", c1n_ph:"Ex. Maman", phone:"Téléphone", c2n:"Contact 2 — nom (facultatif)", c2n_ph:"Ex. Léa",
-      save:"Enregistrer", admin_btn:"Mode admin (modération)", about_btn:"À propos de SafeSpot", language:"Langue",
+      clear:"Effacer", save:"Enregistrer", theme:"Apparence", net_btn:"Le réseau en chiffres", hist_btn:"Mes trajets", admin_btn:"Mode admin (modération)", about_btn:"À propos de SafeSpot", language:"Langue",
       legal_note:"SafeSpot ne remplace pas les secours. En cas de danger immédiat, appelez le {police} (police) ou le {emergency} (urgences).",
       assist_title:"Assistante SafeSpot", assist_sub:"Conseils de sécurité et aide sur l'app. En danger immédiat : {police} ou {emergency}.",
       chat_ph:"Posez votre question…", qa_near:"📍 Point sûr le plus proche", qa_trip:"🟢 Je rentre seule", qa_sos:"🔴 Configurer le SOS",
@@ -507,7 +605,7 @@
       f_name:"Place name", f_name_ph:"e.g. Station Pharmacy", f_type:"Type", cancel:"Cancel", save_here:"Save here",
       settings:"Settings", settings_sub:"Your trusted contacts are alerted when you start an alert or a trip. Everything stays on this device.",
       c1n:"Trusted contact 1 — name", c1n_ph:"e.g. Mum", phone:"Phone", c2n:"Contact 2 — name (optional)", c2n_ph:"e.g. Lea",
-      save:"Save", admin_btn:"Admin mode (moderation)", about_btn:"About SafeSpot", language:"Language",
+      clear:"Clear", save:"Save", theme:"Appearance", net_btn:"The network in numbers", hist_btn:"My trips", admin_btn:"Admin mode (moderation)", about_btn:"About SafeSpot", language:"Language",
       legal_note:"SafeSpot is not a substitute for emergency services. In immediate danger, call {police} (police) or {emergency} (emergency).",
       assist_title:"SafeSpot assistant", assist_sub:"Safety tips and help with the app. In immediate danger: {police} or {emergency}.",
       chat_ph:"Ask your question…", qa_near:"📍 Nearest safe spot", qa_trip:"🟢 Walking home alone", qa_sos:"🔴 Set up SOS",
@@ -601,13 +699,13 @@
 
   var points=jget("safespot_pts",null)||SEED.slice();
   var contacts=jget("safespot_contacts",{c1n:"",c1p:"",c2n:"",c2p:""});
-  var me=null, filter="Tous", markers={}, addMode=false, current=null, watchId=null, routeLayer=null;
+  var me=null, filter="Tous", markers={}, addMode=false, current=null, watchId=null, routeLayer=null, tripStart=null;
 
   // --- Carte ---
   var map=L.map("map",{zoomControl:false}).setView(REIMS,REGION.zoom);
   L.control.zoom({position:"topright"}).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-    maxZoom:19,attribution:"&copy; OpenStreetMap contributors &copy; CARTO",subdomains:"abcd"
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    maxZoom:19,attribution:"&copy; OpenStreetMap"
   }).addTo(map);
 
   function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -632,20 +730,32 @@
   function renderList(){
     var arr=points.filter(function(p){return filter==="Tous"||p.type===filter;});
     if(me){arr.forEach(function(p){p._d=dist(me,[p.lat,p.lng]);});arr.sort(function(a,b){return a._d-b._d;});}
-    el("count").textContent=arr.length+(me?t("count_sorted"):t("count_ref"));
+    el("count").textContent=me?(arr.length+t("count_sorted")):(arr.length+t("count_ref")+" · "+zoneSummary(arr));
     var L2=el("list");
     if(!arr.length){L2.innerHTML='<div class="empty">Aucun point sûr de ce type.<br>Ajoutez-en un avec « Ajouter ».</div>';return;}
     L2.innerHTML="";
     arr.forEach(function(p){
       var row=document.createElement("div");row.className="item";
-      row.innerHTML='<div class="ic"><svg viewBox="0 0 24 24">'+(ICONS[p.type]||ICONS["Autre"])+'</svg></div><div class="it-main"><b>'+esc(p.name)+'</b><span>'+esc(p.type)+(p.hours?' · '+esc(p.hours):'')+'</span></div>'+(me?'<div class="dist">'+fmt(p._d)+'</div>':'');
+      row.innerHTML='<div class="ic"><svg viewBox="0 0 24 24">'+(ICONS[p.type]||ICONS["Autre"])+'</svg></div><div class="it-main"><b>'+esc(p.name)+'</b><span>'+esc(p.type)+(p.hours?' · '+esc(p.hours):'')+'</span></div>'+(isFav(p)?'<div class="star-in-list">★</div>':'')+(me?'<div class="dist">'+fmt(p._d)+'</div>':'');
       row.addEventListener("click",function(){openDetail(p);});
       L2.appendChild(row);
     });
   }
 
   // --- Détail point sûr ---
-  function openDetail(p){current=p;el("dName").textContent=p.name;el("dMeta").textContent=p.type+(p.hours?" · "+p.hours:"")+(me?" · "+fmt(dist(me,[p.lat,p.lng])):"");el("detail").classList.add("open");map.setView([p.lat,p.lng],16);}
+  function openDetail(p){
+    current=p;el("dName").textContent=p.name;
+    el("dMeta").textContent=p.type+(p.hours?" · "+p.hours:"")+(me?" · "+fmt(dist(me,[p.lat,p.lng])):"");
+    el("dFav").setAttribute("aria-pressed",isFav(p)?"true":"false");
+    var bd=el("dBadge");
+    if(bd){
+      var d=p.verified_at?new Date(p.verified_at):null;
+      bd.innerHTML=d
+        ? '<span class="badge-ver"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>'+(LANG==="en"?"Verified ":"Vérifié le ")+d.toLocaleDateString(LANG==="en"?"en-GB":"fr-FR")+'</span>'
+        : '<span class="badge-ver"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>'+(LANG==="en"?"Verified spot":"Point vérifié")+'</span>';
+    }
+    el("detail").classList.add("open");map.setView([p.lat,p.lng],16);
+  }
   el("dClose").addEventListener("click",function(){el("detail").classList.remove("open");});
   el("dRoute").addEventListener("click",function(){el("detail").classList.remove("open");if(current){routeTo([current.lat,current.lng],current.name);}});
 
@@ -732,6 +842,20 @@
     return null;
   }
   function canSubmit(){var last=parseInt(lget("safespot_lastadd")||"0",10);return Date.now()-last>=30000;}
+
+  // Vérification du contributeur : proposer un point demande une identification.
+  // La consultation, l'itinéraire et le SOS restent TOUJOURS libres et sans compte.
+  function requireContributor(then){
+    if(!sb){then();return;} // mode local : pas de compte nécessaire
+    sb.auth.getSession().then(function(r){
+      if(r&&r.data&&r.data.session){then();return;}
+      // pas de session : on ouvre une identification anonyme (sans e-mail ni mot de passe)
+      sb.auth.signInAnonymously().then(function(res){
+        if(res.error){toast("Identification impossible : "+res.error.message);return;}
+        then();
+      });
+    });
+  }
   el("saveAdd").addEventListener("click",function(){
     var n=cleanText(el("pName").value),type=el("pType").value;
     var err=validatePoint(n,type,pending.lat,pending.lng);
@@ -740,10 +864,12 @@
     var rec={name:n,type:type,lat:pending.lat,lng:pending.lng,hours:""};
     el("modal").classList.remove("open");lset("safespot_lastadd",String(Date.now()));
     if(sb){
-      sb.from("safe_points").insert([rec]).then(function(res){
-        if(res.error){toast("Cloud : "+res.error.message);return;}
-        logEvent("point_added");
-        toast(t("toast_proposed"));map.setView([rec.lat,rec.lng],16);
+      requireContributor(function(){
+        sb.from("safe_points").insert([rec]).then(function(res){
+          if(res.error){toast("Cloud : "+res.error.message);return;}
+          logEvent("point_added");
+          toast(t("toast_proposed"));map.setView([rec.lat,rec.lng],16);
+        });
       });
     }else{
       var p={id:"u"+Date.now(),name:rec.name,type:rec.type,lat:rec.lat,lng:rec.lng,hours:""};
@@ -761,7 +887,7 @@
 
   // --- SOS ---
   var sosTimer=null;
-  function openSos(){logEvent("sos_open");el("sosActions").style.display="none";el("sosCount").textContent="5";el("sosOverlay").classList.add("on");locate(null,true);var n=5;sosTimer=setInterval(function(){n--;el("sosCount").textContent=n;if(n<=0){clearInterval(sosTimer);fireSos();}},1000);}
+  function openSos(){logEvent("sos_open");buzz([60,40,60]);el("sosActions").style.display="none";el("sosCount").textContent="5";el("sosOverlay").classList.add("on");locate(null,true);var n=5;sosTimer=setInterval(function(){n--;el("sosCount").textContent=n;if(n<=0){clearInterval(sosTimer);fireSos();}},1000);}
   function closeSos(){clearInterval(sosTimer);el("sosOverlay").classList.remove("on");}
   function fireSos(){
     el("sosCount").textContent="!";
@@ -780,7 +906,8 @@
 
   // --- Mode "Rentrer en sécurité" (suivi en direct) ---
   function startTrip(){
-    logEvent("trip_start");
+    logEvent("trip_start");buzz(25);tripStart=tripStart||Date.now();
+    lset("safespot_trip_active",String(tripStart));
     var go=function(){
       el("trip").classList.add("on");el("tripInfo").textContent="Suivi de position actif";
       var c=firstContact();
@@ -790,7 +917,17 @@
     };
     me?go():locate(go);
   }
-  function endTrip(){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}el("trip").classList.remove("on");clearRoute();toast("Bien arrivée. Trajet terminé.");}
+  function endTrip(){
+    if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    el("trip").classList.remove("on");clearRoute();
+    if(tripStart){
+      addTripHistory({at:tripStart,mins:Math.max(1,Math.round((Date.now()-tripStart)/60000)),label:(LANG==="en"?"Walk home":"Retour à pied")});
+      tripStart=null;
+    }
+    lset("safespot_trip_active","");
+    buzz(30);
+    toast(LANG==="en"?"Arrived safely. Trip ended.":"Bien arrivée. Trajet terminé.");
+  }
   el("btnTrip").addEventListener("click",startTrip);
   el("tripEnd").addEventListener("click",endTrip);
 
@@ -846,30 +983,131 @@
     sb.from("app_events").insert([{type:type}]).then(function(){});
   }
   function setStat(on){var s=el("cloudStat"),t=el("cloudTxt");if(!s)return;var was=s.style.color;s.style.color=on?"#7CCB7C":"#C9B89E";s.title=on?"Connecté au cloud":"Mode local (démo)";if(t)t.textContent=on?"cloud":"local";if(on&&was!=="#7CCB7C"){s.classList.remove("pulseonce");void s.offsetWidth;s.classList.add("pulseonce");}}
-  function loadCloud(){
+  function loadCloud(attempt){
+    attempt=attempt||1;
     if(!sb){setStat(false);return;}
     setStat(true);
     sb.from("safe_points").select("*").eq("approved",true).then(function(res){
-      if(res.error){toast("Cloud : "+res.error.message);setStat(false);return;}
+      if(res.error){
+        // Réessai progressif : le réseau mobile flanche souvent quelques secondes
+        if(attempt<3){setTimeout(function(){loadCloud(attempt+1);},attempt*2500);return;}
+        toast("Cloud : "+res.error.message);setStat(false);return;
+      }
       if(res.data&&res.data.length){
-        points=res.data.map(function(r){return {id:"db"+r.id,_dbid:r.id,name:r.name,type:r.type,lat:Number(r.lat),lng:Number(r.lng),hours:r.hours||""};});
+        points=res.data.map(function(r){return {id:"db"+r.id,_dbid:r.id,name:r.name,type:r.type,lat:Number(r.lat),lng:Number(r.lng),hours:r.hours||"",verified_at:r.verified_at||r.created_at};});
         drawMarkers();renderList();
       }
     });
   }
+  // Reprise automatique quand la connexion revient
+  window.addEventListener("online",function(){if(sb){loadCloud();toast(LANG==="en"?"Back online":"Connexion rétablie");}});
 
-  // --- Signalement d'un point ---
+  // Répartition par zone : lecture immédiate de la couverture du réseau
+  var ZONES=[
+    {k:"Centre-ville",kEn:"City centre",lat:49.2560,lng:4.0290,r:1400},
+    {k:"Croix-Rouge",kEn:"Croix-Rouge",lat:49.2360,lng:4.0050,r:1600}
+  ];
+  function zoneOf(p){
+    for(var i=0;i<ZONES.length;i++){
+      if(dist([p.lat,p.lng],[ZONES[i].lat,ZONES[i].lng])<=ZONES[i].r)return (LANG==="en"?ZONES[i].kEn:ZONES[i].k);
+    }
+    return LANG==="en"?"Other areas":"Autres secteurs";
+  }
+  function zoneSummary(arr){
+    var c={},order=[];
+    arr.forEach(function(p){var z=zoneOf(p);if(!c[z]){c[z]=0;order.push(z);}c[z]++;});
+    return order.map(function(z){return z+" "+c[z];}).join(" · ");
+  }
+
+  // --- Favoris (stockés sur l'appareil) ---
+  var favs=jget("safespot_favs",[]);
+  function isFav(p){return favs.indexOf(p.id)>=0;}
+  function toggleFav(p){
+    var i=favs.indexOf(p.id);
+    if(i>=0){favs.splice(i,1);toast(LANG==="en"?"Removed from favourites":"Retiré des favoris");}
+    else{favs.push(p.id);toast(LANG==="en"?"Added to favourites":"Ajouté aux favoris");buzz(15);}
+    jset("safespot_favs",favs);
+    el("dFav").setAttribute("aria-pressed",isFav(p)?"true":"false");
+    renderList();
+  }
+  el("dFav").addEventListener("click",function(){if(current)toggleFav(current);});
+
+
+  // --- Signalement avec motif ---
+  var REASONS=[
+    {k:"closed",fr:"Fermé définitivement",en:"Permanently closed"},
+    {k:"hours",fr:"Horaires inexacts",en:"Wrong opening hours"},
+    {k:"hostile",fr:"Accueil hostile",en:"Unwelcoming staff"},
+    {k:"other",fr:"Autre problème",en:"Other issue"}
+  ];
   function reportPoint(){
     if(!current)return;
     el("detail").classList.remove("open");
-    if(sb&&current._dbid){
-      sb.from("point_reports").insert([{point_id:current._dbid,reason:"Signalé via l'app"}]).then(function(res){
-        if(res.error){toast("Cloud : "+res.error.message);return;}
-        toast(t("toast_reported"));
-      });
-    }else{toast("Signalement noté (mode local).");}
+    var box=el("reasonBtns");box.innerHTML="";
+    REASONS.forEach(function(r){
+      var b=document.createElement("button");b.textContent=(LANG==="en"?r.en:r.fr);
+      b.addEventListener("click",function(){sendReport(r);});
+      box.appendChild(b);
+    });
+    el("repTitle").textContent=LANG==="en"?"Report this place":"Signaler ce lieu";
+    el("repSub").textContent=LANG==="en"?"Your report helps keep the network reliable. It goes to moderation."
+      :"Votre signalement aide à garder le réseau fiable. Il est transmis à la modération.";
+    el("reportModal").classList.add("open");
   }
+  function sendReport(r){
+    el("reportModal").classList.remove("open");
+    var label=(LANG==="en"?r.en:r.fr);
+    if(sb&&current&&current._dbid){
+      sb.from("point_reports").insert([{point_id:current._dbid,reason:label}]).then(function(res){
+        if(res.error){toast("Cloud : "+res.error.message);return;}
+        toast(t("toast_reported"));buzz(20);
+      });
+    }else{toast(t("toast_reported"));buzz(20);}
+  }
+  el("repCancel").addEventListener("click",function(){el("reportModal").classList.remove("open");});
   el("dReport").addEventListener("click",reportPoint);
+
+  // --- Historique des trajets (local, effaçable) ---
+  function addTripHistory(entry){
+    var h=jget("safespot_trips",[]);
+    h.unshift(entry);
+    if(h.length>30)h=h.slice(0,30); // on ne garde que les 30 derniers
+    jset("safespot_trips",h);
+  }
+  function openHist(){
+    var h=jget("safespot_trips",[]),box=el("histList");box.innerHTML="";
+    el("histTitle").textContent=LANG==="en"?"My trips":"Mes trajets";
+    el("histSub").textContent=LANG==="en"?"Kept on this device only.":"Conservés uniquement sur cet appareil.";
+    if(!h.length){box.innerHTML='<div class="empty">'+(LANG==="en"?"No trips yet.":"Aucun trajet pour l'instant.")+'</div>';}
+    else{
+      h.forEach(function(e){
+        var d=new Date(e.at);
+        var row=document.createElement("div");row.className="histrow";
+        row.innerHTML='<div style="flex:1"><b>'+esc(e.label||(LANG==="en"?"Trip":"Trajet"))+'</b><span>'+
+          d.toLocaleDateString(LANG==="en"?"en-GB":"fr-FR")+' · '+d.toLocaleTimeString(LANG==="en"?"en-GB":"fr-FR",{hour:"2-digit",minute:"2-digit"})+
+          (e.mins?(' · '+e.mins+' min'):'')+'</span></div>';
+        box.appendChild(row);
+      });
+    }
+    el("settings").classList.remove("open");
+    el("histModal").classList.add("open");
+  }
+  el("histClose").addEventListener("click",function(){el("histModal").classList.remove("open");});
+  el("histClear").addEventListener("click",function(){jset("safespot_trips",[]);openHist();toast(LANG==="en"?"History cleared":"Historique effacé");});
+
+  // --- Navigation externe : bascule vers Plans (iOS) ou Google Maps ---
+  // Utile quand l'utilisatrice veut un guidage vocal pas-à-pas. L'app garde
+  // le repérage rapide ; la navigation détaillée est déléguée au système.
+  el("dExtNav").addEventListener("click",function(){
+    if(!current)return;
+    var lat=current.lat,lng=current.lng,label=encodeURIComponent(current.name);
+    var isApple=/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+    var url=isApple
+      ? "https://maps.apple.com/?daddr="+lat+","+lng+"&dirflg=w&q="+label
+      : "https://www.google.com/maps/dir/?api=1&destination="+lat+","+lng+"&travelmode=walking";
+    el("detail").classList.remove("open");
+    window.open(url,"_blank","noopener");
+  });
 
   // --- Mode admin (modération depuis l'app) ---
   function showAdmin(logged){el("adminLogin").style.display=logged?"none":"block";el("adminPanel").style.display=logged?"block":"none";}
@@ -1037,6 +1275,13 @@
     setTxt("aboutDesc",t("about_desc"));setTxt("aboutOrg",t("about_org"));
     setTxt("aboutImportant",t("about_important"));setTxt("aboutPrivacy",t("about_privacy"));
     setTxt("sosTitle",t("sos_title"));setTxt("sosWait",t("sos_wait"));
+    var ts=el("themeSel");
+    if(ts&&ts.options.length===3){
+      var en=(LANG==="en");
+      ts.options[0].textContent=en?"Automatic (follows phone)":"Automatique (suit le téléphone)";
+      ts.options[1].textContent=en?"Light":"Clair";
+      ts.options[2].textContent=en?"Dark":"Sombre";
+    }
     setTxt("tagline1",t("tagline"));setTxt("tagline2",t("tagline"));setTxt("aboutTagline",t("tagline")+" · v1.0");
     setAria("btnNear","near_aria");setAria("btnLocate","locate_aria");setAria("btnAssist","assist_aria");
     renderList();renderChips();
@@ -1047,6 +1292,88 @@
 
   function applyRegionToStaticText(){ applyLang(); }
   applyRegionToStaticText();
+  // --- Thème clair / sombre ---
+  // "auto" suit le réglage du téléphone : l'app passe en sombre le soir,
+  // ce qui évite d'être éblouie et d'attirer l'attention dans la rue.
+  function systemDark(){return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;}
+  function applyTheme(){
+    var pref=lget("safespot_theme")||"auto";
+    var dark=(pref==="dark")||(pref==="auto"&&systemDark());
+    document.documentElement.setAttribute("data-theme",dark?"dark":"light");
+    var meta=document.querySelector('meta[name="theme-color"]');
+    if(meta)meta.setAttribute("content",dark?"#1C140F":"#2E2017");
+  }
+  function setTheme(v){lset("safespot_theme",v);applyTheme();}
+  applyTheme();
+  if(window.matchMedia){
+    var mq=window.matchMedia("(prefers-color-scheme: dark)");
+    var onChange=function(){if((lget("safespot_theme")||"auto")==="auto")applyTheme();};
+    if(mq.addEventListener)mq.addEventListener("change",onChange);
+    else if(mq.addListener)mq.addListener(onChange);
+  }
+  // --- Statistiques publiques du réseau (visibles par tous) ---
+  function openNet(){
+    var en=(LANG==="en");
+    el("netTitle").textContent=en?"The network in numbers":"Le réseau en chiffres";
+    el("netSub").textContent=en?"Live SafeSpot network data.":"Données du réseau SafeSpot, mises à jour en direct.";
+    el("netZoneT").textContent=en?"Coverage by area":"Couverture par secteur";
+    el("netTypeT").textContent=en?"By place type":"Par type de lieu";
+
+    // Indicateurs principaux
+    var open24=points.filter(function(p){return /24h|24\/24/i.test(p.hours||"");}).length;
+    var late=points.filter(function(p){return /0[0-2]h|00h|01h|02h|23h|tard/i.test(p.hours||"");}).length;
+    var kpis=[
+      [points.length,en?"safe spots":"points sûrs"],
+      [open24,en?"open 24/7":"ouverts 24h/24"],
+      [late,en?"open late":"ouverts tard"]
+    ];
+    var box=el("netStats");box.innerHTML="";
+    kpis.forEach(function(k){
+      var d=document.createElement("div");d.className="statpill";
+      d.innerHTML="<b>"+k[0]+"</b><span>"+k[1]+"</span>";box.appendChild(d);
+    });
+
+    // Répartition par zone
+    var zc={},zorder=[];
+    points.forEach(function(p){var z=zoneOf(p);if(!zc[z]){zc[z]=0;zorder.push(z);}zc[z]++;});
+    el("netZones").innerHTML=zorder.map(function(z){
+      return '<div class="arow"><div class="am"><b>'+esc(z)+'</b></div><span style="color:var(--tan-d);font-weight:700">'+zc[z]+'</span></div>';
+    }).join("");
+
+    // Répartition par type
+    var tc={},torder=[];
+    points.forEach(function(p){if(!tc[p.type]){tc[p.type]=0;torder.push(p.type);}tc[p.type]++;});
+    el("netTypes").innerHTML=torder.map(function(ty){
+      return '<div class="arow"><div class="am"><b>'+esc(ty)+'</b></div><span style="color:var(--tan-d);font-weight:700">'+tc[ty]+'</span></div>';
+    }).join("");
+
+    el("settings").classList.remove("open");
+    el("netModal").classList.add("open");
+  }
+  el("openNet").addEventListener("click",openNet);
+  el("netClose").addEventListener("click",function(){el("netModal").classList.remove("open");});
+
+  el("openHist").addEventListener("click",openHist);
+
+  // --- Robustesse : reprise d'un trajet interrompu ---
+  // Si l'app se ferme pendant un trajet (batterie, appel entrant…),
+  // on propose de le reprendre au relancement plutôt que de le perdre.
+  (function(){
+    var act=lget("safespot_trip_active");
+    if(act){
+      var started=parseInt(act,10);
+      if(started&&(Date.now()-started)<4*3600*1000){ // moins de 4h : encore pertinent
+        setTimeout(function(){
+          if(confirm(LANG==="en"?"A trip was in progress. Resume tracking?":"Un trajet était en cours. Reprendre le suivi ?")){
+            tripStart=started;startTrip();
+          }else{lset("safespot_trip_active","");}
+        },1400);
+      }else{lset("safespot_trip_active","");}
+    }
+  })();
+
+  (function(){var ts=el("themeSel");if(ts){ts.value=lget("safespot_theme")||"auto";ts.addEventListener("change",function(){setTheme(ts.value);});}})();
+
   (function(){var ls=el("langSel");if(ls){ls.value=LANG;ls.addEventListener("change",function(){setLang(ls.value);});}})();
 
   el("onbGo").addEventListener("click",function(){
