@@ -509,8 +509,8 @@
      3) Colle-les entre les guillemets ci-dessous
      Laisse vide pour rester en mode local (demo).
   ============================================================ */
-  var SUPABASE_URL="";
-  var SUPABASE_ANON_KEY="";
+  var SUPABASE_URL="https://yivzofvtnmzlvuktlcah.supabase.co";
+  var SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpdnpvZnZ0bm16bHZ1a3RsY2FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NDg0ODEsImV4cCI6MjEwNDMyNDQ4MX0.1emEGXxKwE_Au1Ry-ZvkbN2Qpwc2i8BrjM_nwy4tlZw";
   /* Assistante IA (Claude) — URL de votre relais serveur (Edge Function).
      Laisse vide pour le mode démo (réponses intégrées, sans IA). 
      NE JAMAIS mettre une clé API Anthropic directement ici. */
@@ -651,7 +651,21 @@
   /* Résilience : si Leaflet n'a pas pu charger (réseau faible, CDN indisponible),
      on installe un substitut inerte pour que le reste de l'app (liste, SOS,
      contacts, assistante) continue de fonctionner sans carte. */
-  var MAP_OK=(typeof window.L!=="undefined");
+  // Leaflet peut mettre un instant à arriver sur réseau mobile : on l'attend
+  // vraiment avant de conclure à son absence, sinon la carte ne s'afficherait jamais.
+  var MAP_OK=(typeof window.L!=="undefined"&&typeof window.L.map==="function");
+  if(!MAP_OK){
+    var waited=0;
+    var waitLeaflet=setInterval(function(){
+      waited+=300;
+      if(typeof window.L!=="undefined"&&typeof window.L.map==="function"){
+        clearInterval(waitLeaflet);
+        location.reload(); // Leaflet est arrivé : on relance proprement avec la carte
+      }else if(waited>=6000){
+        clearInterval(waitLeaflet); // vraiment indisponible : on reste en mode dégradé
+      }
+    },300);
+  }
   if(!MAP_OK){
     var noop=function(){return shim;};
     var shim={setView:noop,on:noop,addTo:noop,invalidateSize:noop,removeLayer:noop,
@@ -1385,7 +1399,11 @@
   if(!MAP_OK){setTimeout(function(){toast(t("toast_map_off"));},1200);}
 
   renderChips();drawMarkers();renderList();loadCloud();logEvent("app_open");
-  setTimeout(function(){map.invalidateSize();},250);
+  // La carte doit recalculer sa taille après l'affichage (panneau, clavier,
+  // rotation…). Un seul appel ne suffit pas sur mobile : on en fait plusieurs.
+  [100,400,900,1600].forEach(function(d){setTimeout(function(){try{map.invalidateSize();}catch(e){}},d);});
+  window.addEventListener("resize",function(){try{map.invalidateSize();}catch(e){}});
+  window.addEventListener("orientationchange",function(){setTimeout(function(){try{map.invalidateSize();}catch(e){}},300);});
 })();
 </script>
 <script>
