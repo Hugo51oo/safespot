@@ -1,7 +1,7 @@
 /* SafeSpot — service worker
    Stratégie : cache-first avec mise à jour en arrière-plan (stale-while-revalidate).
    Permet le lancement hors-ligne de l'app et de la carte déjà visitée. */
-const CACHE = "safespot-v2";
+const CACHE = "safespot-v4";
 const SHELL = [
   "./",
   "./index.html",
